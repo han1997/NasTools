@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 暴露 cache/preview/ 子树给 FileProvider，仅用于"下载后调外部应用打开"流程 -->
+    <cache-path name="preview_cache" path="preview/" />
+</paths>
