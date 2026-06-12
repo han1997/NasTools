@@ -21,6 +21,9 @@ interface UploadPresetDao {
     @Update
     suspend fun update(preset: UploadPresetEntity)
 
+    @Query("UPDATE upload_presets SET lastRunAt = :timestamp, updatedAt = :timestamp WHERE id = :id")
+    suspend fun touchLastRun(id: String, timestamp: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM upload_presets WHERE id = :id")
     suspend fun deleteById(id: String)
 }

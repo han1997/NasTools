@@ -23,6 +23,6 @@ interface StorageAdapter {
     suspend fun delete(path: String)
     suspend fun move(from: String, to: String)
     suspend fun copy(from: String, to: String)
-    suspend fun upload(path: String, data: ByteArray, offset: Long = 0)
+    suspend fun upload(path: String, data: ByteArray, offset: Long = 0, totalLength: Long? = null)
     suspend fun download(path: String, start: Long? = null, end: Long? = null): ByteArray
 }

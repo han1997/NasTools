@@ -1,6 +1,10 @@
 package com.nastools.app.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -11,9 +15,13 @@ import androidx.core.app.NotificationCompat
 import com.nastools.app.MainActivity
 import com.nastools.app.data.database.dao.TaskDao
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class NasForegroundService : Service() {
@@ -26,35 +34,42 @@ class NasForegroundService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var isForegroundStarted = false
 
     override fun onCreate() {
         super.onCreate()
         ensureChannel()
         acquireWakeLock()
 
-        // 启动 TaskManager
         taskManager.start()
 
-        // 监听活跃任务更新通知
         scope.launch {
             taskDao.observeActive().collectLatest { tasks ->
                 if (tasks.isEmpty()) {
-                    // 无活跃任务，停止服务
-                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    if (isForegroundStarted) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        isForegroundStarted = false
+                    }
                     stopSelf()
                 } else {
-                    // 更新通知
                     val task = tasks.first()
                     val progress = if (task.totalBytes > 0) {
                         ((task.progressBytes.toFloat() / task.totalBytes) * 100).toInt()
-                    } else 0
-
-                    updateNotification(
+                    } else {
+                        0
+                    }
+                    val notification = buildNotification(
                         title = task.title,
                         message = "${task.progressBytes / 1024 / 1024}MB / ${task.totalBytes / 1024 / 1024}MB",
                         progress = progress,
                         max = 100
                     )
+
+                    if (!isForegroundStarted) {
+                        startForegroundWithNotification(notification)
+                    } else {
+                        updateNotification(notification)
+                    }
                 }
             }
         }
@@ -63,11 +78,19 @@ class NasForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                startForegroundWithNotification(buildNotification("NasTools", "准备开始上传...", -1, 0))
+                if (!isForegroundStarted) {
+                    startForegroundWithNotification(
+                        buildNotification("NasTools", "准备开始传输...", -1, 0)
+                    )
+                }
             }
+
             ACTION_STOP -> {
                 taskManager.stop()
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                if (isForegroundStarted) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    isForegroundStarted = false
+                }
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -80,7 +103,11 @@ class NasForegroundService : Service() {
     override fun onDestroy() {
         scope.cancel()
         taskManager.stop()
-        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
         wakeLock = null
         super.onDestroy()
     }
@@ -95,17 +122,24 @@ class NasForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        isForegroundStarted = true
     }
 
-    private fun updateNotification(title: String, message: String, progress: Int, max: Int) {
-        val notification = buildNotification(title, message, progress, max)
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun updateNotification(notification: Notification) {
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun buildNotification(title: String, message: String, progress: Int, max: Int): Notification {
+    private fun buildNotification(
+        title: String,
+        message: String,
+        progress: Int,
+        max: Int
+    ): Notification {
         val openIntent = PendingIntent.getActivity(
-            this, 0,
+            this,
+            0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -134,7 +168,7 @@ class NasForegroundService : Service() {
                 "传输任务",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "上传/下载进度"
+                description = "上传和下载进度通知"
                 setShowBadge(false)
             }
             val notificationManager = getSystemService(NotificationManager::class.java)
@@ -149,7 +183,7 @@ class NasForegroundService : Service() {
             "NasTools:upload"
         ).apply {
             setReferenceCounted(false)
-            acquire(10 * 60 * 1000L) // 10 minutes
+            acquire(10 * 60 * 1000L)
         }
     }
 

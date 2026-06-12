@@ -1,8 +1,5 @@
 package com.nastools.app.data.network
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
 class WebDavAdapter(private val client: WebDavClient) : StorageAdapter {
 
     override suspend fun ping() {
@@ -42,8 +39,8 @@ class WebDavAdapter(private val client: WebDavClient) : StorageAdapter {
         client.copy(from, to)
     }
 
-    override suspend fun upload(path: String, data: ByteArray, offset: Long) {
-        client.put(path, data, offset, if (offset > 0) offset + data.size else null)
+    override suspend fun upload(path: String, data: ByteArray, offset: Long, totalLength: Long?) {
+        client.put(path, data, offset, totalLength)
     }
 
     override suspend fun download(path: String, start: Long?, end: Long?): ByteArray {

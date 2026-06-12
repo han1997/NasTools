@@ -108,14 +108,22 @@ private fun ConfigList(
     } else {
         LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(configs) { config ->
-                ConfigCard(config = config, onClick = { onConfigClick(config.id) })
+                ConfigCard(
+                    config = config,
+                    onClick = { onConfigClick(config.id) },
+                    onManageClick = { onManageClick(config.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ConfigCard(config: NasConfigEntity, onClick: () -> Unit) {
+private fun ConfigCard(
+    config: NasConfigEntity,
+    onClick: () -> Unit,
+    onManageClick: () -> Unit
+) {
     Card(onClick = onClick) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -127,6 +135,9 @@ private fun ConfigCard(config: NasConfigEntity, onClick: () -> Unit) {
                 Text(config.name, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
                 Text(config.baseUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onManageClick) {
+                Icon(Icons.Default.Edit, "编辑连接")
             }
         }
     }

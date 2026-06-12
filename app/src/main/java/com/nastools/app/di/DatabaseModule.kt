@@ -3,7 +3,9 @@ package com.nastools.app.di
 import android.content.Context
 import androidx.room.Room
 import com.nastools.app.data.database.AppDatabase
-import com.nastools.app.data.database.dao.*
+import com.nastools.app.data.database.dao.NasConfigDao
+import com.nastools.app.data.database.dao.TaskDao
+import com.nastools.app.data.database.dao.UploadPresetDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,7 +24,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -38,10 +42,5 @@ object DatabaseModule {
     @Provides
     fun provideUploadPresetDao(database: AppDatabase): UploadPresetDao {
         return database.uploadPresetDao()
-    }
-
-    @Provides
-    fun provideLogDao(database: AppDatabase): LogDao {
-        return database.logDao()
     }
 }

@@ -1,7 +1,5 @@
 package com.nastools.app.di
 
-import com.nastools.app.data.network.WebDavAdapter
-import com.nastools.app.data.network.WebDavClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,15 +20,5 @@ object NetworkModule {
             .readTimeout(600, TimeUnit.SECONDS)
             .writeTimeout(600, TimeUnit.SECONDS)
             .build()
-    }
-
-    @Provides
-    fun provideWebDavClient(client: OkHttpClient): WebDavClient {
-        return WebDavClient(client, "")
-    }
-
-    @Provides
-    fun provideWebDavAdapter(client: WebDavClient): WebDavAdapter {
-        return WebDavAdapter(client)
     }
 }

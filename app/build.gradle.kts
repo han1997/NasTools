@@ -60,6 +60,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3:1.2.0")
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.navigation:navigation-compose:2.7.6")
@@ -79,19 +80,12 @@ dependencies {
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // JSON
     implementation("com.google.code.gson:gson:2.10.1")
 
-    // Image loading
-    implementation("io.coil-kt:coil-compose:2.5.0")
-
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
 }
 
 kapt {

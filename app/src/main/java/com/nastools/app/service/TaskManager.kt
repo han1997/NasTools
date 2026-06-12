@@ -2,23 +2,28 @@ package com.nastools.app.service
 
 import com.nastools.app.data.database.dao.TaskDao
 import com.nastools.app.data.database.entity.TaskEntity
-import com.nastools.app.domain.model.TaskResult
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.first
-import java.util.concurrent.Semaphore
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TaskManager @Inject constructor(
-    private val taskDao: TaskDao
+    private val taskDao: TaskDao,
+    private val uploadExecutor: UploadExecutor
 ) {
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var scope = newScope()
     private val semaphore = Semaphore(3)
-    private val runningJobs = mutableMapOf<String, Job>()
+    private val runningJobs = ConcurrentHashMap<String, Job>()
+    private var collectorJob: Job? = null
 
     fun start() {
-        scope.launch {
+        if (collectorJob?.isActive == true) return
+        if (!scope.isActive) scope = newScope()
+
+        collectorJob = scope.launch {
             taskDao.reviveInterrupted()
             taskDao.observeByStatus(listOf("waiting")).collect { tasks ->
                 tasks.forEach { task ->
@@ -32,20 +37,44 @@ class TaskManager @Inject constructor(
 
     private fun launchTask(task: TaskEntity) {
         val job = scope.launch {
-            semaphore.acquire()
             try {
-                taskDao.updateStatus(task.id, "running")
-                // TODO: Execute task with executor
-                delay(1000)
-                taskDao.updateStatus(task.id, "completed")
+                semaphore.withPermit {
+                    executeTask(task)
+                }
+            } catch (e: CancellationException) {
+                val latest = taskDao.getById(task.id)
+                if (latest?.status == "running") {
+                    taskDao.updateStatus(task.id, "waiting")
+                }
+                throw e
             } catch (e: Exception) {
-                taskDao.updateStatusWithError(task.id, "failed", e.message, task.retryCount + 1)
+                val latest = taskDao.getById(task.id) ?: task
+                taskDao.updateStatusWithError(task.id, "failed", e.message, latest.retryCount + 1)
             } finally {
-                semaphore.release()
                 runningJobs.remove(task.id)
             }
         }
         runningJobs[task.id] = job
+    }
+
+    private suspend fun executeTask(task: TaskEntity) {
+        val current = taskDao.getById(task.id) ?: return
+        if (current.status != "waiting") return
+
+        taskDao.updateStatus(current.id, "running")
+
+        when (current.moduleId) {
+            "upload" -> uploadExecutor.execute(current) { uploadedBytes, totalBytes ->
+                taskDao.updateProgress(current.id, uploadedBytes, totalBytes)
+            }
+
+            else -> error("Unsupported task module: ${current.moduleId}")
+        }
+
+        val latest = taskDao.getById(current.id)
+        if (latest?.status == "running") {
+            taskDao.updateStatus(current.id, "completed")
+        }
     }
 
     suspend fun pause(id: String) {
@@ -67,6 +96,15 @@ class TaskManager @Inject constructor(
     }
 
     fun stop() {
+        collectorJob?.cancel()
+        collectorJob = null
+        runningJobs.values.forEach { it.cancel() }
+        runningJobs.clear()
         scope.cancel()
+        scope = newScope()
+    }
+
+    private fun newScope(): CoroutineScope {
+        return CoroutineScope(Dispatchers.Default + SupervisorJob())
     }
 }
