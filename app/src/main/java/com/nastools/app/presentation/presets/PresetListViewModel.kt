@@ -58,12 +58,22 @@ class PresetListViewModel @Inject constructor(
             runCatching {
                 val preset = presetRepository.getById(id) ?: error("上传预设不存在")
                 if (preset.localUri.isBlank()) error("预设缺少本地文件")
-                uploadTaskCreator.enqueueFileUpload(
-                    nasConfigId = preset.nasConfigId,
-                    localUri = preset.localUri,
-                    remoteDirectory = preset.remoteRoot,
-                    options = UploadPresetOptionsCodec.decode(preset.optionsJson)
-                )
+                val options = UploadPresetOptionsCodec.decode(preset.optionsJson)
+                if (options.sourceType == "folder") {
+                    uploadTaskCreator.enqueueFolderUpload(
+                        nasConfigId = preset.nasConfigId,
+                        localUri = preset.localUri,
+                        remoteDirectory = preset.remoteRoot,
+                        options = options
+                    )
+                } else {
+                    uploadTaskCreator.enqueueFileUpload(
+                        nasConfigId = preset.nasConfigId,
+                        localUri = preset.localUri,
+                        remoteDirectory = preset.remoteRoot,
+                        options = options
+                    )
+                }
                 presetRepository.touchLastRun(id)
             }.onSuccess {
                 transient.value = PresetListTransient(message = "已加入上传任务")

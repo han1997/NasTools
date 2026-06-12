@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MoreVert
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -41,10 +43,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -61,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.network.RemoteEntry
+import com.nastools.app.domain.model.UploadPresetOptions
 import com.nastools.app.util.BytesFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,9 +79,23 @@ fun BrowserScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
+    var showUploadMenu by remember { mutableStateOf(false) }
+    var uploadDraft by remember { mutableStateOf<UploadDraft?>(null) }
+
+    fun draftFromUri(uri: android.net.Uri, sourceType: String): UploadDraft {
+        val label = uri.lastPathSegment
+            ?.substringAfterLast(':')
+            ?.substringAfterLast('/')
+            ?.ifBlank { null }
+            ?: if (sourceType == "folder") "folder" else "upload.bin"
+        return UploadDraft(uri.toString(), sourceType, label)
+    }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { viewModel.enqueueUpload(it.toString()) }
+        uri?.let { uploadDraft = draftFromUri(it, "file") }
+    }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { uploadDraft = draftFromUri(it, "folder") }
     }
 
     LaunchedEffect(configId) {
@@ -89,6 +108,23 @@ fun BrowserScreen(
             snackbarHostState.showSnackbar(transientMessage)
             viewModel.clearTransientMessage()
         }
+    }
+
+    uploadDraft?.let { draft ->
+        UploadOptionsDialog(
+            draft = draft,
+            onDismiss = { uploadDraft = null },
+            onConfirm = { options, saveAsPreset, presetName ->
+                viewModel.enqueueUpload(
+                    localUri = draft.uri,
+                    sourceType = draft.sourceType,
+                    options = options,
+                    saveAsPreset = saveAsPreset,
+                    presetName = presetName
+                )
+                uploadDraft = null
+            }
+        )
     }
 
     if (showCreateFolderDialog) {
@@ -148,17 +184,37 @@ fun BrowserScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = viewModel::goUp,
-                        enabled = uiState.path != "/"
-                    ) {
+                    IconButton(onClick = viewModel::goUp, enabled = uiState.path != "/") {
                         Icon(Icons.Default.ArrowUpward, "上级目录")
                     }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Default.Refresh, "刷新")
                     }
-                    IconButton(onClick = { filePicker.launch(arrayOf("*/*")) }) {
-                        Icon(Icons.Default.UploadFile, "上传文件")
+                    Box {
+                        IconButton(onClick = { showUploadMenu = true }) {
+                            Icon(Icons.Default.UploadFile, "上传")
+                        }
+                        DropdownMenu(
+                            expanded = showUploadMenu,
+                            onDismissRequest = { showUploadMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("上传文件") },
+                                leadingIcon = { Icon(Icons.Default.InsertDriveFile, null) },
+                                onClick = {
+                                    showUploadMenu = false
+                                    filePicker.launch(arrayOf("*/*"))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("上传文件夹") },
+                                leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
+                                onClick = {
+                                    showUploadMenu = false
+                                    folderPicker.launch(null)
+                                }
+                            )
+                        }
                     }
                     IconButton(onClick = { showCreateFolderDialog = true }) {
                         Icon(Icons.Default.CreateNewFolder, "新建文件夹")
@@ -230,6 +286,125 @@ fun BrowserScreen(
 }
 
 @Composable
+private fun UploadOptionsDialog(
+    draft: UploadDraft,
+    onDismiss: () -> Unit,
+    onConfirm: (UploadPresetOptions, Boolean, String) -> Unit
+) {
+    var fileMode by remember { mutableStateOf("resume_or_overwrite") }
+    var folderMode by remember { mutableStateOf("merge") }
+    var saveAsPreset by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf(draft.label.substringBeforeLast('.')) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (draft.sourceType == "folder") "上传文件夹" else "上传文件") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    draft.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                OptionDropdown(
+                    label = "同名文件",
+                    selected = fileMode,
+                    options = fileConflictOptions,
+                    onSelected = { fileMode = it }
+                )
+                if (draft.sourceType == "folder") {
+                    OptionDropdown(
+                        label = "同名文件夹",
+                        selected = folderMode,
+                        options = folderConflictOptions,
+                        onSelected = { folderMode = it }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("保存为预设", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "下次可在上传预设中一键运行",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = saveAsPreset, onCheckedChange = { saveAsPreset = it })
+                }
+                if (saveAsPreset) {
+                    OutlinedTextField(
+                        value = presetName,
+                        onValueChange = { presetName = it },
+                        label = { Text("预设名称") },
+                        singleLine = true
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        UploadPresetOptions(
+                            sourceType = draft.sourceType,
+                            overwriteMode = fileMode,
+                            folderConflictMode = folderMode
+                        ),
+                        saveAsPreset,
+                        presetName
+                    )
+                }
+            ) {
+                Text("开始上传")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+@Composable
+private fun OptionDropdown(
+    label: String,
+    selected: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.first == selected }?.second.orEmpty()
+
+    Box {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "$label：$selectedLabel",
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Icon(Icons.Default.MoreVert, null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (value, text) ->
+                DropdownMenuItem(
+                    text = { Text(text) },
+                    onClick = {
+                        expanded = false
+                        onSelected(value)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EntryRow(
     entry: RemoteEntry,
     onOpen: () -> Unit,
@@ -246,12 +421,7 @@ private fun EntryRow(
                 Text(entry.subtitle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             leadingContent = {
-                Icon(
-                    if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
-                    null,
-                    modifier = Modifier.size(32.dp),
-                    tint = if (entry.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                EntryIcon(entry)
             },
             trailingContent = {
                 Box {
@@ -286,12 +456,7 @@ private fun EntryGridCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
-                    null,
-                    modifier = Modifier.size(36.dp),
-                    tint = if (entry.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                EntryIcon(entry)
                 Spacer(Modifier.weight(1f))
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -327,6 +492,20 @@ private fun EntryGridCard(
 }
 
 @Composable
+private fun EntryIcon(entry: RemoteEntry) {
+    Icon(
+        if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+        null,
+        modifier = Modifier.size(32.dp),
+        tint = if (entry.isDirectory) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    )
+}
+
+@Composable
 private fun EntryMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
@@ -345,3 +524,24 @@ private fun RemoteEntry.subtitle(): String {
     if (isDirectory) return "文件夹"
     return size?.let { BytesFormat.human(it) } ?: "文件"
 }
+
+private data class UploadDraft(
+    val uri: String,
+    val sourceType: String,
+    val label: String
+)
+
+private val fileConflictOptions = listOf(
+    "resume_or_overwrite" to "续传，完整则跳过",
+    "overwrite" to "覆盖",
+    "skip_existing" to "跳过",
+    "rename" to "自动改名",
+    "fail" to "报错停止"
+)
+
+private val folderConflictOptions = listOf(
+    "merge" to "合并",
+    "rename" to "自动改名",
+    "skip" to "跳过",
+    "fail" to "报错停止"
+)

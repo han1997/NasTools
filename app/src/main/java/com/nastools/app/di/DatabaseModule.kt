@@ -3,6 +3,7 @@ package com.nastools.app.di
 import android.content.Context
 import androidx.room.Room
 import com.nastools.app.data.database.AppDatabase
+import com.nastools.app.data.database.DatabaseMigrations
 import com.nastools.app.data.database.dao.NasConfigDao
 import com.nastools.app.data.database.dao.TaskDao
 import com.nastools.app.data.database.dao.UploadPresetDao
@@ -20,12 +21,13 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
+        DatabaseMigrations.prepareDatabaseFiles(context)
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(DatabaseMigrations.migration1To2)
             .build()
     }
 

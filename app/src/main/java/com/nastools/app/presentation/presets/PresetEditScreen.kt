@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +58,9 @@ fun PresetEditScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.updateLocalUri(it.toString()) }
+    }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let { viewModel.updateLocalTreeUri(it.toString()) }
     }
 
     LaunchedEffect(presetId) {
@@ -98,6 +102,13 @@ fun PresetEditScreen(
                 onSelected = viewModel::updateNasConfigId
             )
 
+            OptionDropdown(
+                label = "来源类型",
+                selected = uiState.sourceType,
+                options = sourceTypeOptions,
+                onSelected = viewModel::updateSourceType
+            )
+
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = viewModel::updateName,
@@ -107,13 +118,24 @@ fun PresetEditScreen(
             )
 
             OutlinedButton(
-                onClick = { filePicker.launch(arrayOf("*/*")) },
+                onClick = {
+                    if (uiState.sourceType == "folder") {
+                        folderPicker.launch(null)
+                    } else {
+                        filePicker.launch(arrayOf("*/*"))
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.InsertDriveFile, null)
+                Icon(
+                    if (uiState.sourceType == "folder") Icons.Default.FolderOpen else Icons.Default.InsertDriveFile,
+                    null
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    uiState.localLabel.ifBlank { "选择本地文件" },
+                    uiState.localLabel.ifBlank {
+                        if (uiState.sourceType == "folder") "选择本地文件夹" else "选择本地文件"
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -127,6 +149,22 @@ fun PresetEditScreen(
                 singleLine = true
             )
 
+            OptionDropdown(
+                label = "同名文件",
+                selected = uiState.overwriteMode,
+                options = fileConflictOptions,
+                onSelected = viewModel::updateOverwriteMode
+            )
+
+            if (uiState.sourceType == "folder") {
+                OptionDropdown(
+                    label = "同名文件夹",
+                    selected = uiState.folderConflictMode,
+                    options = folderConflictOptions,
+                    onSelected = viewModel::updateFolderConflictMode
+                )
+            }
+
             OutlinedTextField(
                 value = uiState.chunkSizeMb,
                 onValueChange = viewModel::updateChunkSizeMb,
@@ -134,11 +172,6 @@ fun PresetEditScreen(
                 label = { Text("分块大小 MB") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
-            )
-
-            OverwriteModeSelector(
-                selected = uiState.overwriteMode,
-                onSelected = viewModel::updateOverwriteMode
             )
 
             OutlinedTextField(
@@ -158,7 +191,11 @@ fun PresetEditScreen(
 
             SwitchRow(
                 title = "上传后删除本地文件",
-                subtitle = "需要系统文件提供方允许删除",
+                subtitle = if (uiState.sourceType == "folder") {
+                    "会尝试删除已上传的本地文件，受系统文件提供方限制"
+                } else {
+                    "需要系统文件提供方允许删除"
+                },
                 checked = uiState.deleteAfterUpload,
                 onCheckedChange = viewModel::updateDeleteAfterUpload
             )
@@ -184,50 +221,40 @@ private fun ConfigSelector(
     selectedId: String,
     onSelected: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedName = configs.firstOrNull { it.first == selectedId }?.second ?: "选择连接"
-
-    Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(selectedName, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Icons.Default.ExpandMore, null)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            configs.forEach { (id, name) ->
-                DropdownMenuItem(
-                    text = { Text(name) },
-                    onClick = {
-                        expanded = false
-                        onSelected(id)
-                    }
-                )
-            }
-        }
-    }
+    OptionDropdown(
+        label = "连接",
+        selected = selectedId,
+        options = configs,
+        fallback = "选择连接",
+        onSelected = onSelected
+    )
 }
 
 @Composable
-private fun OverwriteModeSelector(
+private fun OptionDropdown(
+    label: String,
     selected: String,
+    options: List<Pair<String, String>>,
+    fallback: String = "请选择",
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val modes = listOf(
-        "resume_or_overwrite" to "续传或覆盖",
-        "overwrite" to "始终覆盖",
-        "skip_existing" to "存在则跳过"
-    )
-    val selectedName = modes.firstOrNull { it.first == selected }?.second ?: "续传或覆盖"
+    val selectedName = options.firstOrNull { it.first == selected }?.second ?: fallback
 
     Box {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(selectedName, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "$label：$selectedName",
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Icon(Icons.Default.ExpandMore, null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            modes.forEach { (id, label) ->
+            options.forEach { (id, name) ->
                 DropdownMenuItem(
-                    text = { Text(label) },
+                    text = { Text(name) },
                     onClick = {
                         expanded = false
                         onSelected(id)
@@ -260,3 +287,23 @@ private fun SwitchRow(
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
+
+private val sourceTypeOptions = listOf(
+    "file" to "文件",
+    "folder" to "文件夹"
+)
+
+private val fileConflictOptions = listOf(
+    "resume_or_overwrite" to "续传，完整则跳过",
+    "overwrite" to "覆盖",
+    "skip_existing" to "跳过",
+    "rename" to "自动改名",
+    "fail" to "报错停止"
+)
+
+private val folderConflictOptions = listOf(
+    "merge" to "合并",
+    "rename" to "自动改名",
+    "skip" to "跳过",
+    "fail" to "报错停止"
+)

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.documentfile.provider.DocumentFile
 import com.google.gson.Gson
 import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.data.repository.TaskRepository
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 
 data class LocalFileMetadata(
     val name: String,
-    val size: Long
+    val size: Long,
+    val sourceType: String = "file"
 )
 
 @Singleton
@@ -36,26 +38,92 @@ class UploadTaskCreator @Inject constructor(
         persistReadPermission(localUri)
 
         val metadata = describeLocalUri(localUri)
-        val remotePath = RemotePath.join(remoteDirectory, metadata.name)
         val payload = UploadTaskPayload(
+            sourceType = "file",
             localUri = localUri,
             localName = metadata.name,
-            remotePath = remotePath,
+            remotePath = RemotePath.join(remoteDirectory, metadata.name),
             totalBytes = metadata.size,
-            options = options
+            options = options.copy(sourceType = "file")
         )
-        val taskId = UUID.randomUUID().toString()
 
+        return enqueueUpload(
+            nasConfigId = nasConfigId,
+            type = "file",
+            title = "上传 ${metadata.name}",
+            totalBytes = metadata.size,
+            payload = payload
+        )
+    }
+
+    suspend fun enqueueFolderUpload(
+        nasConfigId: String,
+        localUri: String,
+        remoteDirectory: String,
+        options: UploadPresetOptions = UploadPresetOptions()
+    ): String {
+        persistReadPermission(localUri)
+
+        val metadata = describeLocalTree(localUri)
+        val payload = UploadTaskPayload(
+            sourceType = "folder",
+            localUri = localUri,
+            localName = metadata.name,
+            remotePath = RemotePath.join(remoteDirectory, metadata.name),
+            totalBytes = metadata.size,
+            options = options.copy(sourceType = "folder")
+        )
+
+        return enqueueUpload(
+            nasConfigId = nasConfigId,
+            type = "folder",
+            title = "上传文件夹 ${metadata.name}",
+            totalBytes = metadata.size,
+            payload = payload
+        )
+    }
+
+    fun persistReadPermission(localUri: String) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                Uri.parse(localUri),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+    }
+
+    fun describeLocalUri(localUri: String): LocalFileMetadata {
+        return queryFileMetadata(Uri.parse(localUri))
+    }
+
+    fun describeLocalTree(localUri: String): LocalFileMetadata {
+        val uri = Uri.parse(localUri)
+        val root = DocumentFile.fromTreeUri(context, uri)
+        val name = root?.name
+            ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')
+            ?: "folder"
+        val size = root?.let { sumFileSizes(it) } ?: 0L
+        return LocalFileMetadata(name = name, size = size, sourceType = "folder")
+    }
+
+    private suspend fun enqueueUpload(
+        nasConfigId: String,
+        type: String,
+        title: String,
+        totalBytes: Long,
+        payload: UploadTaskPayload
+    ): String {
+        val taskId = UUID.randomUUID().toString()
         taskRepository.insert(
             TaskEntity(
                 id = taskId,
                 moduleId = "upload",
-                type = "file",
+                type = type,
                 nasConfigId = nasConfigId,
                 status = "waiting",
                 progressBytes = 0,
-                totalBytes = metadata.size,
-                title = "上传 ${metadata.name}",
+                totalBytes = totalBytes,
+                title = title,
                 payloadJson = gson.toJson(payload)
             )
         )
@@ -63,21 +131,7 @@ class UploadTaskCreator @Inject constructor(
         return taskId
     }
 
-    fun persistReadPermission(localUri: String) {
-        val uri = Uri.parse(localUri)
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
-    }
-
-    fun describeLocalUri(localUri: String): LocalFileMetadata {
-        return queryMetadata(Uri.parse(localUri))
-    }
-
-    private fun queryMetadata(uri: Uri): LocalFileMetadata {
+    private fun queryFileMetadata(uri: Uri): LocalFileMetadata {
         var name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null } ?: "upload.bin"
         var size = 0L
 
@@ -108,6 +162,11 @@ class UploadTaskCreator @Inject constructor(
             }.getOrDefault(0L)
         }
 
-        return LocalFileMetadata(name = name, size = size)
+        return LocalFileMetadata(name = name, size = size, sourceType = "file")
+    }
+
+    private fun sumFileSizes(file: DocumentFile): Long {
+        if (file.isFile) return file.length().coerceAtLeast(0)
+        return file.listFiles().sumOf { sumFileSizes(it) }
     }
 }
