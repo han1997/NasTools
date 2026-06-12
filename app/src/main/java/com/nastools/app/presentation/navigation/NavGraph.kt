@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nastools.app.presentation.home.HomeScreen
+import com.nastools.app.presentation.settings.SettingsScreen
 import com.nastools.app.presentation.tasks.TasksScreen
 
 @Composable
@@ -23,6 +24,9 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
         }
         composable("tasks") {
             TasksScreen(onBack = { navController.popBackStack() })
+        }
+        composable("settings") {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }
