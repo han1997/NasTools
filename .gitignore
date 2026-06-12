@@ -1,54 +1,45 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# Android / Gradle
+*.iml
+.gradle
+/local.properties
+/.idea
 .DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+/build
+/app/build
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+captures/
+.externalNativeBuild
+.cxx
+
+# Android Studio
+*.iws
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+
+# Keystore
+*.jks
+*.keystore
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
 .claude/
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# VS Code
-.vscode/
-
-# Flutter / Dart / Pub
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-
-# Generated files
-*.g.dart
-*.freezed.dart
-*.config.dart
-
-# Symbolication / Obfuscation
-app.*.symbols
-app.*.map.json
-
-# Android Studio / Gradle
-.gradle/
-**/android/captures/
-**/android/build/
-**/android/local.properties
-**/android/**/GeneratedPluginRegistrant.java
-**/android/key.properties
-*.jks
-
-# Web
-lib/generated_plugin_registrant.dart
+# Misc
+*.swp
+*.bak
+*~
