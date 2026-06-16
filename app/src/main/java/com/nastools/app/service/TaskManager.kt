@@ -63,7 +63,7 @@ class TaskManager @Inject constructor(
 
         taskDao.updateStatus(current.id, "running")
 
-        when (current.moduleId) {
+        val warning = when (current.moduleId) {
             "upload" -> uploadExecutor.execute(current) { uploadedBytes, totalBytes ->
                 taskDao.updateProgress(current.id, uploadedBytes, totalBytes)
             }
@@ -73,7 +73,11 @@ class TaskManager @Inject constructor(
 
         val latest = taskDao.getById(current.id)
         if (latest?.status == "running") {
-            taskDao.updateStatus(current.id, "completed")
+            if (warning != null) {
+                taskDao.updateStatusWithError(current.id, "completed", warning, latest.retryCount)
+            } else {
+                taskDao.updateStatus(current.id, "completed")
+            }
         }
     }
 

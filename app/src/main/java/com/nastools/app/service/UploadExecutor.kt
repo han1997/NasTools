@@ -34,7 +34,7 @@ class UploadExecutor @Inject constructor(
     suspend fun execute(
         task: TaskEntity,
         onProgress: suspend (uploadedBytes: Long, totalBytes: Long) -> Unit
-    ) = withContext(Dispatchers.IO) {
+    ): String? = withContext(Dispatchers.IO) {
         val configId = task.nasConfigId ?: throw IOException("上传任务缺少 NAS 配置")
         val config = configRepository.getById(configId) ?: throw IOException("NAS 配置不存在")
         val payload = decodePayload(task.payloadJson)
@@ -49,12 +49,15 @@ class UploadExecutor @Inject constructor(
         val totalBytes = payload.totalBytes.takeIf { it > 0 } ?: task.totalBytes
         val sourceType = payload.sourceType.ifBlank { options.sourceType }
 
+        val warnings = mutableListOf<String>()
+
         if (sourceType == "folder") {
             uploadFolder(
                 adapter = adapter,
                 payload = payload,
                 options = options.copy(sourceType = "folder"),
                 totalBytes = totalBytes,
+                warnings = warnings,
                 onProgress = onProgress
             )
         } else {
@@ -62,6 +65,7 @@ class UploadExecutor @Inject constructor(
             uploadFile(
                 adapter = adapter,
                 uri = Uri.parse(payload.localUri),
+                localDocument = DocumentFile.fromSingleUri(context, Uri.parse(payload.localUri)),
                 localName = payload.localName.ifBlank { RemotePath.basename(payload.remotePath) },
                 remotePath = RemotePath.normalize(payload.remotePath),
                 fileSize = totalBytes,
@@ -69,9 +73,12 @@ class UploadExecutor @Inject constructor(
                 totalTaskBytes = totalBytes,
                 completedBytes = { completedBytes },
                 updateCompletedBytes = { completedBytes = it },
+                warnings = warnings,
                 onProgress = onProgress
             )
         }
+
+        return@withContext if (warnings.isEmpty()) null else "上传完成，${warnings.size} 个本地项目未能删除"
     }
 
     private suspend fun uploadFolder(
@@ -79,6 +86,7 @@ class UploadExecutor @Inject constructor(
         payload: UploadTaskPayload,
         options: UploadPresetOptions,
         totalBytes: Long,
+        warnings: MutableList<String>,
         onProgress: suspend (Long, Long) -> Unit
     ) {
         val root = DocumentFile.fromTreeUri(context, Uri.parse(payload.localUri))
@@ -99,6 +107,8 @@ class UploadExecutor @Inject constructor(
             totalTaskBytes = totalBytes,
             completedBytes = { completedBytes },
             updateCompletedBytes = { completedBytes = it },
+            warnings = warnings,
+            isRoot = true,
             onProgress = onProgress
         )
     }
@@ -111,18 +121,25 @@ class UploadExecutor @Inject constructor(
         totalTaskBytes: Long,
         completedBytes: () -> Long,
         updateCompletedBytes: (Long) -> Unit,
+        warnings: MutableList<String>,
+        isRoot: Boolean = false,
         onProgress: suspend (Long, Long) -> Unit
-    ) {
+    ): Boolean {
         adapter.mkdir(remoteDirectory)
+        var canDeleteDirectory = options.deleteAfterUpload
         directory.listFiles().forEach { child ->
             currentCoroutineContext().ensureActive()
-            val childName = child.name ?: return@forEach
+            val childName = child.name ?: run {
+                canDeleteDirectory = false
+                return@forEach
+            }
             val desiredPath = RemotePath.join(remoteDirectory, childName)
 
             when {
                 child.isDirectory -> {
                     val folderPath = prepareFolderTarget(adapter, desiredPath, options)
                     if (folderPath == null) {
+                        canDeleteDirectory = false
                         markProgress(
                             bytes = sumFileSizes(child),
                             totalTaskBytes = totalTaskBytes,
@@ -131,7 +148,7 @@ class UploadExecutor @Inject constructor(
                             onProgress = onProgress
                         )
                     } else {
-                        uploadDirectory(
+                        val childMoved = uploadDirectory(
                             adapter = adapter,
                             directory = child,
                             remoteDirectory = folderPath,
@@ -139,15 +156,19 @@ class UploadExecutor @Inject constructor(
                             totalTaskBytes = totalTaskBytes,
                             completedBytes = completedBytes,
                             updateCompletedBytes = updateCompletedBytes,
+                            warnings = warnings,
+                            isRoot = false,
                             onProgress = onProgress
                         )
+                        if (!childMoved) canDeleteDirectory = false
                     }
                 }
 
                 child.isFile -> {
-                    uploadFile(
+                    val childMoved = uploadFile(
                         adapter = adapter,
                         uri = child.uri,
+                        localDocument = child,
                         localName = childName,
                         remotePath = desiredPath,
                         fileSize = child.length().coerceAtLeast(0),
@@ -155,16 +176,36 @@ class UploadExecutor @Inject constructor(
                         totalTaskBytes = totalTaskBytes,
                         completedBytes = completedBytes,
                         updateCompletedBytes = updateCompletedBytes,
+                        warnings = warnings,
                         onProgress = onProgress
                     )
+                    if (!childMoved) canDeleteDirectory = false
                 }
+
+                else -> canDeleteDirectory = false
             }
         }
+
+        if (isRoot) {
+            return true
+        }
+
+        if (options.deleteAfterUpload && canDeleteDirectory) {
+            val deleted = deleteLocalSource(
+                document = directory,
+                uri = directory.uri,
+                description = "本地文件夹 ${directory.name ?: remoteDirectory}",
+                warnings = warnings
+            )
+            return deleted
+        }
+        return !options.deleteAfterUpload
     }
 
     private suspend fun uploadFile(
         adapter: StorageAdapter,
         uri: Uri,
+        localDocument: DocumentFile?,
         localName: String,
         remotePath: String,
         fileSize: Long,
@@ -172,14 +213,15 @@ class UploadExecutor @Inject constructor(
         totalTaskBytes: Long,
         completedBytes: () -> Long,
         updateCompletedBytes: (Long) -> Unit,
+        warnings: MutableList<String>,
         onProgress: suspend (Long, Long) -> Unit
-    ) {
+    ): Boolean {
         val filterRegex = options.filterRegex?.takeIf { it.isNotBlank() }?.let {
             runCatching { Regex(it) }.getOrElse { throw IOException("过滤正则格式不正确") }
         }
         if (filterRegex != null && !filterRegex.containsMatchIn(localName)) {
             markProgress(fileSize, totalTaskBytes, completedBytes, updateCompletedBytes, onProgress)
-            return
+            return false
         }
 
         RemotePath.parent(remotePath).takeIf { it != "/" }?.let { adapter.mkdir(it) }
@@ -187,7 +229,7 @@ class UploadExecutor @Inject constructor(
         val plan = prepareFileTarget(adapter, remotePath, fileSize, options)
         if (plan.skip) {
             markProgress(fileSize, totalTaskBytes, completedBytes, updateCompletedBytes, onProgress)
-            return
+            return false
         }
 
         val completedBeforeFile = completedBytes()
@@ -213,8 +255,15 @@ class UploadExecutor @Inject constructor(
         updateCompletedBytes(completedBeforeFile + (fileSize.takeIf { it > 0 } ?: uploadedBytes))
 
         if (options.deleteAfterUpload) {
-            runCatching { context.contentResolver.delete(uri, null, null) }
+            val deleted = deleteLocalSource(
+                document = localDocument ?: DocumentFile.fromSingleUri(context, uri),
+                uri = uri,
+                description = "本地文件 $localName",
+                warnings = warnings
+            )
+            return deleted
         }
+        return true
     }
 
     private suspend fun prepareFolderTarget(
@@ -348,6 +397,26 @@ class UploadExecutor @Inject constructor(
         val updated = completedBytes() + bytes.coerceAtLeast(0)
         updateCompletedBytes(updated)
         onProgress(updated, totalTaskBytes)
+    }
+
+    private fun deleteLocalSource(
+        document: DocumentFile?,
+        uri: Uri,
+        description: String,
+        warnings: MutableList<String>
+    ): Boolean {
+        val deleted = runCatching {
+            if (document?.delete() == true) {
+                true
+            } else {
+                context.contentResolver.delete(uri, null, null) > 0
+            }
+        }.getOrDefault(false)
+
+        if (!deleted) {
+            warnings.add(description)
+        }
+        return deleted
     }
 
     private fun decodePayload(json: String): UploadTaskPayload {
