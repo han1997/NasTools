@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development overview and guideline index"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Error handling patterns - critical for changing deletion failure from fatal error to non-fatal warning"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Code quality standards and forbidden patterns"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Avoid duplication when adding warning collection mechanism"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Changes span service layer (UploadExecutor, TaskManager) and data layer (TaskDao)"}
