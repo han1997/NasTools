@@ -39,3 +39,36 @@ Fixed deletion failures after folder upload not marking tasks as failed. Downgra
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Add task detail page and batch delete
+
+**Date**: 2026-06-17
+**Task**: Add task detail page and batch delete
+**Branch**: `main`
+
+### Summary
+
+Implemented task detail page with file list scanning and batch delete functionality for completed/failed tasks. Detail page shows full task info, recursively scans folder uploads, handles deleted files gracefully. Batch delete mode with selection UI, confirmation dialog, and optimized database transaction.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ec35b04` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
