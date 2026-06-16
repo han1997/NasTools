@@ -121,7 +121,7 @@ class PresetEditViewModel @Inject constructor(
             runCatching {
                 withContext(Dispatchers.IO) {
                     val metadata = uploadTaskCreator.describeLocalUri(localUri)
-                    uploadTaskCreator.persistReadPermission(localUri)
+                    uploadTaskCreator.persistReadPermission(localUri, requestWrite = true)
                     metadata
                 }
             }.onSuccess { metadata ->
@@ -145,7 +145,7 @@ class PresetEditViewModel @Inject constructor(
             runCatching {
                 withContext(Dispatchers.IO) {
                     val metadata = uploadTaskCreator.describeLocalTree(localUri)
-                    uploadTaskCreator.persistReadPermission(localUri)
+                    uploadTaskCreator.persistReadPermission(localUri, requestWrite = true)
                     metadata
                 }
             }.onSuccess { metadata ->

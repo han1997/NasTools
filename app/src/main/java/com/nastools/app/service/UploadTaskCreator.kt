@@ -35,7 +35,7 @@ class UploadTaskCreator @Inject constructor(
         remoteDirectory: String,
         options: UploadPresetOptions = UploadPresetOptions()
     ): String {
-        persistReadPermission(localUri)
+        persistReadPermission(localUri, requestWrite = options.deleteAfterUpload)
 
         val metadata = describeLocalUri(localUri)
         val payload = UploadTaskPayload(
@@ -62,7 +62,7 @@ class UploadTaskCreator @Inject constructor(
         remoteDirectory: String,
         options: UploadPresetOptions = UploadPresetOptions()
     ): String {
-        persistReadPermission(localUri)
+        persistReadPermission(localUri, requestWrite = options.deleteAfterUpload)
 
         val metadata = describeLocalTree(localUri)
         val payload = UploadTaskPayload(
@@ -83,12 +83,21 @@ class UploadTaskCreator @Inject constructor(
         )
     }
 
-    fun persistReadPermission(localUri: String) {
+    fun persistReadPermission(localUri: String, requestWrite: Boolean = false) {
+        val uri = Uri.parse(localUri)
         runCatching {
             context.contentResolver.takePersistableUriPermission(
-                Uri.parse(localUri),
+                uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
+        }
+        if (requestWrite) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
         }
     }
 

@@ -30,10 +30,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nastools.app.presentation.components.NasScaffold
+import com.nastools.app.presentation.components.NasTopAppBar
+import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.rememberNasMotionEnabled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +58,7 @@ fun PresetEditScreen(
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val motionEnabled = rememberNasMotionEnabled()
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.updateLocalUri(it.toString()) }
     }
@@ -67,10 +70,11 @@ fun PresetEditScreen(
         viewModel.load(presetId)
     }
 
-    Scaffold(
+    NasScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (presetId == null) "新建预设" else "编辑预设") },
+            NasTopAppBar(
+                title = if (presetId == null) "新建预设" else "编辑预设",
+                subtitle = "来源、目录和冲突策略",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "返回")
@@ -89,7 +93,8 @@ fun PresetEditScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(16.dp)
+                .nasAnimateContentSize(motionEnabled),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (uiState.isLoading || uiState.isSaving) {
@@ -190,11 +195,11 @@ fun PresetEditScreen(
             )
 
             SwitchRow(
-                title = "上传后删除本地文件",
+                title = "移动上传",
                 subtitle = if (uiState.sourceType == "folder") {
-                    "会尝试删除已上传的本地文件，受系统文件提供方限制"
+                    "上传完成后删除本地文件夹，受系统文件提供方限制"
                 } else {
-                    "需要系统文件提供方允许删除"
+                    "上传完成后删除本地文件，需要文件提供方允许写入"
                 },
                 checked = uiState.deleteAfterUpload,
                 onCheckedChange = viewModel::updateDeleteAfterUpload

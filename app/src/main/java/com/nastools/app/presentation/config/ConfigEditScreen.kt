@@ -25,11 +25,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +42,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nastools.app.presentation.components.NasScaffold
+import com.nastools.app.presentation.components.NasTopAppBar
+import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.rememberNasMotionEnabled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +57,7 @@ fun ConfigEditScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val motionEnabled = rememberNasMotionEnabled()
 
     LaunchedEffect(configId) {
         viewModel.load(configId)
@@ -83,10 +86,11 @@ fun ConfigEditScreen(
         )
     }
 
-    Scaffold(
+    NasScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (configId == null) "新建连接" else "编辑连接") },
+            NasTopAppBar(
+                title = if (configId == null) "新建连接" else "编辑连接",
+                subtitle = "WebDAV 地址和认证信息",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "返回")
@@ -110,7 +114,8 @@ fun ConfigEditScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(16.dp)
+                .nasAnimateContentSize(motionEnabled),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (uiState.isLoading || uiState.isSaving || uiState.isTesting) {

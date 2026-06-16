@@ -1,5 +1,6 @@
 package com.nastools.app.presentation.presets
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -21,16 +23,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,8 +44,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.UploadPresetEntity
+import com.nastools.app.presentation.components.NasCardShape
+import com.nastools.app.presentation.components.NasEmptyState
+import com.nastools.app.presentation.components.NasIconContainer
+import com.nastools.app.presentation.components.NasMiniFab
+import com.nastools.app.presentation.components.NasScaffold
+import com.nastools.app.presentation.components.NasTopAppBar
+import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.nasCardBorder
+import com.nastools.app.presentation.components.nasCardColors
+import com.nastools.app.presentation.components.nasCardElevation
+import com.nastools.app.presentation.components.rememberNasMotionEnabled
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PresetListScreen(
     viewModel: PresetListViewModel = hiltViewModel(),
@@ -56,6 +67,7 @@ fun PresetListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val transientMessage = uiState.errorMessage ?: uiState.message
+    val motionEnabled = rememberNasMotionEnabled()
 
     LaunchedEffect(transientMessage) {
         if (!transientMessage.isNullOrBlank()) {
@@ -64,11 +76,12 @@ fun PresetListScreen(
         }
     }
 
-    Scaffold(
+    NasScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("上传预设") },
+            NasTopAppBar(
+                title = "上传预设",
+                subtitle = "保存常用来源和冲突策略",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "返回")
@@ -77,33 +90,30 @@ fun PresetListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreatePreset) {
-                Icon(Icons.Default.Add, "新建预设")
-            }
+            NasMiniFab(onClick = onCreatePreset, icon = Icons.Default.Add, contentDescription = "新建预设")
         }
     ) { padding ->
         if (uiState.presets.isEmpty()) {
-            Box(
-                modifier = Modifier.padding(padding).fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Bookmark, null, tint = MaterialTheme.colorScheme.outline)
-                    Text(
-                        if (uiState.configs.isEmpty()) "先新建连接，再添加上传预设" else "还没有上传预设",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            NasEmptyState(
+                modifier = Modifier.padding(padding),
+                icon = Icons.Default.Bookmark,
+                title = if (uiState.configs.isEmpty()) "先新建连接" else "还没有上传预设",
+                message = if (uiState.configs.isEmpty()) {
+                    "连接创建后，可以把常用上传保存为预设"
+                } else {
+                    "保存来源、远端目录和同名处理方式，之后一键运行"
                 }
-            }
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(uiState.presets, key = { it.id }) { preset ->
                     PresetCard(
                         preset = preset,
+                        modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                         configName = uiState.configNames[preset.nasConfigId] ?: "未知连接",
                         onRun = { viewModel.runPreset(preset.id) },
                         onEdit = { onEditPreset(preset.id) },
@@ -118,6 +128,7 @@ fun PresetListScreen(
 @Composable
 private fun PresetCard(
     preset: UploadPresetEntity,
+    modifier: Modifier = Modifier,
     configName: String,
     onRun: () -> Unit,
     onEdit: () -> Unit,
@@ -125,8 +136,16 @@ private fun PresetCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(onClick = onEdit) {
+    Card(
+        onClick = onEdit,
+        modifier = modifier.nasAnimateContentSize(rememberNasMotionEnabled()),
+        shape = NasCardShape,
+        colors = nasCardColors(),
+        border = nasCardBorder(),
+        elevation = nasCardElevation()
+    ) {
         ListItem(
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             headlineContent = {
                 Text(preset.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
@@ -140,7 +159,9 @@ private fun PresetCard(
                     )
                 }
             },
-            leadingContent = { Icon(Icons.Default.Bookmark, null) },
+            leadingContent = {
+                NasIconContainer(Icons.Default.Bookmark, null, selected = true)
+            },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onRun) {

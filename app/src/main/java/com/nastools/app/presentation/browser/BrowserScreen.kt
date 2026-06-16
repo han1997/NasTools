@@ -1,7 +1,9 @@
 package com.nastools.app.presentation.browser
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,12 +22,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -42,16 +45,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,9 +68,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.network.RemoteEntry
 import com.nastools.app.domain.model.UploadPresetOptions
+import com.nastools.app.presentation.components.NasCardShape
+import com.nastools.app.presentation.components.NasEmptyState
+import com.nastools.app.presentation.components.NasIconContainer
+import com.nastools.app.presentation.components.NasScaffold
+import com.nastools.app.presentation.components.NasTopAppBar
+import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.nasCardBorder
+import com.nastools.app.presentation.components.nasCardColors
+import com.nastools.app.presentation.components.nasCardElevation
+import com.nastools.app.presentation.components.rememberNasMotionEnabled
 import com.nastools.app.util.BytesFormat
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BrowserScreen(
     configId: String,
@@ -81,6 +93,7 @@ fun BrowserScreen(
     var folderName by remember { mutableStateOf("") }
     var showUploadMenu by remember { mutableStateOf(false) }
     var uploadDraft by remember { mutableStateOf<UploadDraft?>(null) }
+    val motionEnabled = rememberNasMotionEnabled()
 
     fun draftFromUri(uri: android.net.Uri, sourceType: String): UploadDraft {
         val label = uri.lastPathSegment
@@ -100,6 +113,10 @@ fun BrowserScreen(
 
     LaunchedEffect(configId) {
         viewModel.load(configId)
+    }
+
+    BackHandler(enabled = uiState.path != "/") {
+        viewModel.goUp()
     }
 
     val transientMessage = uiState.errorMessage ?: uiState.message
@@ -158,34 +175,31 @@ fun BrowserScreen(
         )
     }
 
-    Scaffold(
+    NasScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            uiState.configName.ifBlank { "文件浏览" },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            uiState.path,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
+            NasTopAppBar(
+                title = uiState.configName.ifBlank { "文件浏览" },
+                subtitle = uiState.path,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
+                    IconButton(
+                        onClick = {
+                            if (uiState.path == "/") {
+                                onBack()
+                            } else {
+                                viewModel.goUp()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            if (uiState.path == "/") "返回主页" else "返回上一级目录"
+                        )
                     }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::goUp, enabled = uiState.path != "/") {
-                        Icon(Icons.Default.ArrowUpward, "上级目录")
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.Home, "返回主页")
                     }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Default.Refresh, "刷新")
@@ -229,7 +243,12 @@ fun BrowserScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .nasAnimateContentSize(motionEnabled)
+        ) {
             if (uiState.isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -242,16 +261,19 @@ fun BrowserScreen(
                 }
 
                 uiState.entries.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("此目录为空", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    NasEmptyState(
+                        modifier = Modifier.fillMaxSize(),
+                        icon = Icons.Default.FolderOpen,
+                        title = "此目录为空",
+                        message = "可以上传文件，或在此处新建文件夹"
+                    )
                 }
 
                 uiState.isGrid -> {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(132.dp),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
+                        contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -268,12 +290,13 @@ fun BrowserScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(12.dp),
+                        contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(uiState.entries, key = { it.path }) { entry ->
                             EntryRow(
                                 entry = entry,
+                                modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                                 onOpen = { viewModel.open(entry) },
                                 onDelete = { viewModel.delete(entry) }
                             )
@@ -294,13 +317,18 @@ private fun UploadOptionsDialog(
     var fileMode by remember { mutableStateOf("resume_or_overwrite") }
     var folderMode by remember { mutableStateOf("merge") }
     var saveAsPreset by remember { mutableStateOf(false) }
+    var deleteAfterUpload by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf(draft.label.substringBeforeLast('.')) }
+    val motionEnabled = rememberNasMotionEnabled()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (draft.sourceType == "folder") "上传文件夹" else "上传文件") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.nasAnimateContentSize(motionEnabled),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
                     draft.label,
                     style = MaterialTheme.typography.bodyMedium,
@@ -320,6 +348,20 @@ private fun UploadOptionsDialog(
                         options = folderConflictOptions,
                         onSelected = { folderMode = it }
                     )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("移动上传", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "上传完成后删除本地${if (draft.sourceType == "folder") "文件夹" else "文件"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = deleteAfterUpload, onCheckedChange = { deleteAfterUpload = it })
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -352,7 +394,8 @@ private fun UploadOptionsDialog(
                         UploadPresetOptions(
                             sourceType = draft.sourceType,
                             overwriteMode = fileMode,
-                            folderConflictMode = folderMode
+                            folderConflictMode = folderMode,
+                            deleteAfterUpload = deleteAfterUpload
                         ),
                         saveAsPreset,
                         presetName
@@ -388,7 +431,7 @@ private fun OptionDropdown(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Icon(Icons.Default.MoreVert, null)
+            Icon(Icons.Default.ExpandMore, null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (value, text) ->
@@ -407,13 +450,22 @@ private fun OptionDropdown(
 @Composable
 private fun EntryRow(
     entry: RemoteEntry,
+    modifier: Modifier = Modifier,
     onOpen: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(onClick = onOpen) {
+    Card(
+        onClick = onOpen,
+        modifier = modifier,
+        shape = NasCardShape,
+        colors = nasCardColors(),
+        border = nasCardBorder(),
+        elevation = nasCardElevation()
+    ) {
         ListItem(
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             headlineContent = {
                 Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
@@ -450,9 +502,16 @@ private fun EntryGridCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(onClick = onOpen, modifier = Modifier.aspectRatio(1f)) {
+    Card(
+        onClick = onOpen,
+        modifier = Modifier.aspectRatio(1f),
+        shape = NasCardShape,
+        colors = nasCardColors(),
+        border = nasCardBorder(),
+        elevation = nasCardElevation()
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxSize().padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.Top) {
@@ -493,15 +552,10 @@ private fun EntryGridCard(
 
 @Composable
 private fun EntryIcon(entry: RemoteEntry) {
-    Icon(
-        if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
-        null,
-        modifier = Modifier.size(32.dp),
-        tint = if (entry.isDirectory) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
+    NasIconContainer(
+        icon = if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+        contentDescription = null,
+        selected = entry.isDirectory
     )
 }
 
