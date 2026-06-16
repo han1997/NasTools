@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development overview"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Error handling patterns for file scanning failures and deletion errors"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Code quality standards and Material 3 design patterns"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Changes span presentation (UI), data (DAO), and navigation layers"}
+{"file": "PRODUCT.md", "reason": "Product design principles: information priority, direct operations, batch efficiency"}
+
