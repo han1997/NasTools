@@ -11,6 +11,7 @@ import com.nastools.app.presentation.home.HomeScreen
 import com.nastools.app.presentation.presets.PresetEditScreen
 import com.nastools.app.presentation.presets.PresetListScreen
 import com.nastools.app.presentation.settings.SettingsScreen
+import com.nastools.app.presentation.tasks.TaskDetailScreen
 import com.nastools.app.presentation.tasks.TasksScreen
 
 @Composable
@@ -27,7 +28,16 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
             )
         }
         composable("tasks") {
-            TasksScreen(onBack = { navController.popBackStack() })
+            TasksScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { navController.navigate("tasks/$it") }
+            )
+        }
+        composable("tasks/{taskId}") {
+            TaskDetailScreen(
+                onBack = { navController.popBackStack() },
+                onDeleted = { navController.popBackStack() }
+            )
         }
         composable("settings") {
             SettingsScreen(onBack = { navController.popBackStack() })
