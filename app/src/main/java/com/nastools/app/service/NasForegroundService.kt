@@ -4,27 +4,23 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.nastools.app.MainActivity
 import com.nastools.app.data.database.dao.TaskDao
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class NasForegroundService : Service() {
+class NasForegroundService : LifecycleService() {
 
     @Inject
     lateinit var taskDao: TaskDao
@@ -33,7 +29,6 @@ class NasForegroundService : Service() {
     lateinit var taskManager: TaskManager
 
     private var wakeLock: PowerManager.WakeLock? = null
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var isForegroundStarted = false
 
     override fun onCreate() {
@@ -43,7 +38,7 @@ class NasForegroundService : Service() {
 
         taskManager.start()
 
-        scope.launch {
+        lifecycleScope.launch {
             taskDao.observeActive().collectLatest { tasks ->
                 if (tasks.isEmpty()) {
                     if (isForegroundStarted) {
@@ -76,6 +71,7 @@ class NasForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_START -> {
                 if (!isForegroundStarted) {
@@ -98,10 +94,7 @@ class NasForegroundService : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
     override fun onDestroy() {
-        scope.cancel()
         taskManager.stop()
         wakeLock?.let {
             if (it.isHeld) {

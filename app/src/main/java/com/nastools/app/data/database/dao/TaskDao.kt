@@ -1,5 +1,6 @@
 package com.nastools.app.data.database.dao
 
+import androidx.paging.PagingSource
 import androidx.room.*
 import com.nastools.app.data.database.entity.TaskEntity
 import kotlinx.coroutines.flow.Flow
@@ -8,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 interface TaskDao {
     @Query("SELECT * FROM tasks WHERE status IN (:statuses) ORDER BY priority DESC, createdAt ASC")
     fun observeByStatus(statuses: List<String>): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE status IN (:statuses) ORDER BY priority DESC, createdAt ASC")
+    fun pagingByStatus(statuses: List<String>): PagingSource<Int, TaskEntity>
 
     @Query("SELECT * FROM tasks WHERE status IN ('waiting', 'running', 'paused') ORDER BY priority DESC, createdAt ASC")
     fun observeActive(): Flow<List<TaskEntity>>

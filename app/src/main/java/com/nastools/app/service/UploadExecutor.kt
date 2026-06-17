@@ -561,12 +561,23 @@ class UploadExecutor @Inject constructor(
         onFileProgress: suspend (Long, Long) -> Unit
     ): Long {
         context.contentResolver.openInputStream(uri)?.use { input ->
+            // Stream-based processing for files with unknown size (totalBytes <= 0)
+            // to avoid loading entire file into memory
             if (totalBytes <= 0) {
-                val bytes = input.readBytes()
-                currentCoroutineContext().ensureActive()
-                uploadChunk(bytes, 0L)
-                onFileProgress(bytes.size.toLong(), bytes.size.toLong())
-                return bytes.size.toLong()
+                val buffer = ByteArray(chunkSize)
+                var uploaded = 0L
+
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val read = input.read(buffer, 0, buffer.size)
+                    if (read == -1) break
+
+                    val bytes = if (read == buffer.size) buffer.copyOf() else buffer.copyOf(read)
+                    uploadChunk(bytes, uploaded)
+                    uploaded += read
+                    onFileProgress(uploaded, uploaded)
+                }
+                return uploaded
             }
 
             skipFully(input, startOffset)
