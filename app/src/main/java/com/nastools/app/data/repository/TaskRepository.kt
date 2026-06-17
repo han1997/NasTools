@@ -23,4 +23,6 @@ class TaskRepository @Inject constructor(
     suspend fun deleteById(id: String) = dao.deleteById(id)
 
     suspend fun deleteByIds(ids: List<String>) = dao.deleteByIds(ids)
+
+    suspend fun updateTitle(taskId: String, title: String) = dao.updateTitle(taskId, title)
 }

@@ -10,6 +10,7 @@ import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.data.network.StorageAdapter
 import com.nastools.app.data.network.StorageAdapterFactory
 import com.nastools.app.data.repository.NasConfigRepository
+import com.nastools.app.data.repository.TaskRepository
 import com.nastools.app.domain.model.UploadPresetOptions
 import com.nastools.app.domain.model.UploadTaskPayload
 import com.nastools.app.util.RemotePath
@@ -22,14 +23,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 @Singleton
 class UploadExecutor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val configRepository: NasConfigRepository,
-    private val adapterFactory: StorageAdapterFactory
+    private val adapterFactory: StorageAdapterFactory,
+    private val taskRepository: TaskRepository
 ) {
     private val gson = Gson()
+    private val networkTimeoutMs = 30_000L
 
     suspend fun execute(
         task: TaskEntity,
@@ -51,31 +55,42 @@ class UploadExecutor @Inject constructor(
 
         val warnings = mutableListOf<String>()
 
-        if (sourceType == "folder") {
-            uploadFolder(
-                adapter = adapter,
-                payload = payload,
-                options = options.copy(sourceType = "folder"),
-                totalBytes = totalBytes,
-                warnings = warnings,
-                onProgress = onProgress
-            )
-        } else {
-            var completedBytes = 0L
-            uploadFile(
-                adapter = adapter,
-                uri = Uri.parse(payload.localUri),
-                localDocument = DocumentFile.fromSingleUri(context, Uri.parse(payload.localUri)),
-                localName = payload.localName.ifBlank { RemotePath.basename(payload.remotePath) },
-                remotePath = RemotePath.normalize(payload.remotePath),
-                fileSize = totalBytes,
-                options = options.copy(sourceType = "file"),
-                totalTaskBytes = totalBytes,
-                completedBytes = { completedBytes },
-                updateCompletedBytes = { completedBytes = it },
-                warnings = warnings,
-                onProgress = onProgress
-            )
+        try {
+            if (sourceType == "folder") {
+                uploadFolder(
+                    adapter = adapter,
+                    payload = payload,
+                    options = options.copy(sourceType = "folder"),
+                    totalBytes = totalBytes,
+                    warnings = warnings,
+                    taskId = task.id,
+                    originalTitle = task.title,
+                    onProgress = onProgress
+                )
+            } else {
+                var completedBytes = 0L
+                val remotePath = RemotePath.normalize(payload.remotePath)
+                uploadFile(
+                    adapter = adapter,
+                    uri = Uri.parse(payload.localUri),
+                    localDocument = DocumentFile.fromSingleUri(context, Uri.parse(payload.localUri)),
+                    localName = payload.localName.ifBlank { RemotePath.basename(payload.remotePath) },
+                    remotePath = remotePath,
+                    fileSize = totalBytes,
+                    options = options.copy(sourceType = "file"),
+                    totalTaskBytes = totalBytes,
+                    completedBytes = { completedBytes },
+                    updateCompletedBytes = { completedBytes = it },
+                    warnings = warnings,
+                    taskId = task.id,
+                    originalTitle = task.title,
+                    remoteDirForTitle = RemotePath.parent(remotePath),
+                    onProgress = onProgress
+                )
+            }
+        } finally {
+            // Restore original title after upload completes or fails
+            taskRepository.updateTitle(task.id, task.title)
         }
 
         return@withContext if (warnings.isEmpty()) null else "上传完成，${warnings.size} 个本地项目未能删除"
@@ -87,14 +102,45 @@ class UploadExecutor @Inject constructor(
         options: UploadPresetOptions,
         totalBytes: Long,
         warnings: MutableList<String>,
+        taskId: String,
+        originalTitle: String,
         onProgress: suspend (Long, Long) -> Unit
     ) {
         val root = DocumentFile.fromTreeUri(context, Uri.parse(payload.localUri))
             ?: throw IOException("无法打开本地文件夹")
         val rootName = payload.localName.ifBlank { root.name ?: "folder" }
         val rootPath = RemotePath.normalize(payload.remotePath.ifBlank { "/$rootName" })
-        val remoteRoot = prepareFolderTarget(adapter, rootPath, options) ?: run {
-            onProgress(totalBytes, totalBytes)
+
+        val remoteRoot = prepareFolderTarget(adapter, rootPath, options)
+        val skippedFolders = mutableListOf<String>()
+
+        if (remoteRoot == null) {
+            // Root folder exists and skip mode - upload contents in merge mode
+            var completedBytes = 0L
+            uploadDirectory(
+                adapter = adapter,
+                directory = root,
+                remoteDirectory = rootPath,
+                remoteDirForTitle = rootPath,
+                options = options,
+                totalTaskBytes = totalBytes,
+                completedBytes = { completedBytes },
+                updateCompletedBytes = { completedBytes = it },
+                warnings = warnings,
+                skippedFolders = skippedFolders,
+                taskId = taskId,
+                originalTitle = originalTitle,
+                isRoot = true,
+                onProgress = onProgress
+            )
+
+            // If nothing was uploaded, set warning
+            if (completedBytes == 0L) {
+                warnings.add("所有文件已存在，跳过上传（已上传 0 字节）")
+            }
+            if (skippedFolders.isNotEmpty()) {
+                warnings.add("跳过 ${skippedFolders.size} 个已存在的文件夹")
+            }
             return
         }
 
@@ -103,29 +149,48 @@ class UploadExecutor @Inject constructor(
             adapter = adapter,
             directory = root,
             remoteDirectory = remoteRoot,
+            remoteDirForTitle = remoteRoot,
             options = options,
             totalTaskBytes = totalBytes,
             completedBytes = { completedBytes },
             updateCompletedBytes = { completedBytes = it },
             warnings = warnings,
+            skippedFolders = skippedFolders,
+            taskId = taskId,
+            originalTitle = originalTitle,
             isRoot = true,
             onProgress = onProgress
         )
+
+        if (skippedFolders.isNotEmpty()) {
+            warnings.add("跳过 ${skippedFolders.size} 个已存在的文件夹")
+        }
     }
 
     private suspend fun uploadDirectory(
         adapter: StorageAdapter,
         directory: DocumentFile,
         remoteDirectory: String,
+        remoteDirForTitle: String,
         options: UploadPresetOptions,
         totalTaskBytes: Long,
         completedBytes: () -> Long,
         updateCompletedBytes: (Long) -> Unit,
         warnings: MutableList<String>,
+        skippedFolders: MutableList<String>,
+        taskId: String,
+        originalTitle: String,
         isRoot: Boolean = false,
         onProgress: suspend (Long, Long) -> Unit
     ): Boolean {
-        adapter.mkdir(remoteDirectory)
+        try {
+            withTimeout(networkTimeoutMs) {
+                adapter.mkdir(remoteDirectory)
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            throw IOException("网络操作超时")
+        }
+
         var canDeleteDirectory = options.deleteAfterUpload
         directory.listFiles().forEach { child ->
             currentCoroutineContext().ensureActive()
@@ -140,6 +205,7 @@ class UploadExecutor @Inject constructor(
                     val folderPath = prepareFolderTarget(adapter, desiredPath, options)
                     if (folderPath == null) {
                         canDeleteDirectory = false
+                        skippedFolders.add(desiredPath)
                         markProgress(
                             bytes = sumFileSizes(child),
                             totalTaskBytes = totalTaskBytes,
@@ -152,11 +218,15 @@ class UploadExecutor @Inject constructor(
                             adapter = adapter,
                             directory = child,
                             remoteDirectory = folderPath,
+                            remoteDirForTitle = remoteDirForTitle,
                             options = options,
                             totalTaskBytes = totalTaskBytes,
                             completedBytes = completedBytes,
                             updateCompletedBytes = updateCompletedBytes,
                             warnings = warnings,
+                            skippedFolders = skippedFolders,
+                            taskId = taskId,
+                            originalTitle = originalTitle,
                             isRoot = false,
                             onProgress = onProgress
                         )
@@ -177,6 +247,9 @@ class UploadExecutor @Inject constructor(
                         completedBytes = completedBytes,
                         updateCompletedBytes = updateCompletedBytes,
                         warnings = warnings,
+                        taskId = taskId,
+                        originalTitle = originalTitle,
+                        remoteDirForTitle = remoteDirForTitle,
                         onProgress = onProgress
                     )
                     if (!childMoved) canDeleteDirectory = false
@@ -214,6 +287,9 @@ class UploadExecutor @Inject constructor(
         completedBytes: () -> Long,
         updateCompletedBytes: (Long) -> Unit,
         warnings: MutableList<String>,
+        taskId: String,
+        originalTitle: String,
+        remoteDirForTitle: String,
         onProgress: suspend (Long, Long) -> Unit
     ): Boolean {
         val filterRegex = options.filterRegex?.takeIf { it.isNotBlank() }?.let {
@@ -224,13 +300,24 @@ class UploadExecutor @Inject constructor(
             return false
         }
 
-        RemotePath.parent(remotePath).takeIf { it != "/" }?.let { adapter.mkdir(it) }
+        try {
+            withTimeout(networkTimeoutMs) {
+                RemotePath.parent(remotePath).takeIf { it != "/" }?.let { adapter.mkdir(it) }
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            throw IOException("网络操作超时")
+        }
 
         val plan = prepareFileTarget(adapter, remotePath, fileSize, options)
         if (plan.skip) {
             markProgress(fileSize, totalTaskBytes, completedBytes, updateCompletedBytes, onProgress)
             return false
         }
+
+        // Update task title to show current file
+        val relativePath = remotePath.removePrefix(remoteDirForTitle).removePrefix("/")
+        val newTitle = "$originalTitle > 当前：$relativePath"
+        taskRepository.updateTitle(taskId, newTitle)
 
         val completedBeforeFile = completedBytes()
         val uploadedBytes = uploadFromUri(
@@ -240,12 +327,18 @@ class UploadExecutor @Inject constructor(
             totalBytes = fileSize,
             chunkSize = options.chunkSizeMb.coerceIn(1, 128) * 1024 * 1024,
             uploadChunk = { bytes, offset ->
-                adapter.upload(
-                    path = plan.path,
-                    data = bytes,
-                    offset = offset,
-                    totalLength = fileSize.takeIf { it > 0 }
-                )
+                try {
+                    withTimeout(networkTimeoutMs) {
+                        adapter.upload(
+                            path = plan.path,
+                            data = bytes,
+                            offset = offset,
+                            totalLength = fileSize.takeIf { it > 0 }
+                        )
+                    }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    throw IOException("网络操作超时")
+                }
             },
             onFileProgress = { fileProgress, _ ->
                 onProgress(completedBeforeFile + fileProgress, totalTaskBytes)
@@ -272,16 +365,36 @@ class UploadExecutor @Inject constructor(
         options: UploadPresetOptions
     ): String? {
         val normalized = RemotePath.normalize(desiredPath)
-        val stat = runCatching { adapter.stat(normalized) }.getOrNull()
+        val stat = try {
+            withTimeout(networkTimeoutMs) {
+                runCatching { adapter.stat(normalized) }.getOrNull()
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            throw IOException("网络操作超时")
+        }
 
         if (stat == null) {
-            adapter.mkdir(normalized)
+            try {
+                withTimeout(networkTimeoutMs) {
+                    adapter.mkdir(normalized)
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                throw IOException("网络操作超时")
+            }
             return normalized
         }
 
         if (stat.isDirectory) {
             return when (options.folderConflictMode) {
-                "rename" -> findAvailablePath(adapter, normalized, isDirectory = true).also { adapter.mkdir(it) }
+                "rename" -> findAvailablePath(adapter, normalized, isDirectory = true).also {
+                    try {
+                        withTimeout(networkTimeoutMs) {
+                            adapter.mkdir(it)
+                        }
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        throw IOException("网络操作超时")
+                    }
+                }
                 "skip" -> null
                 "fail" -> throw IOException("远端文件夹已存在: $normalized")
                 else -> normalized
@@ -289,7 +402,15 @@ class UploadExecutor @Inject constructor(
         }
 
         return when (options.folderConflictMode) {
-            "rename" -> findAvailablePath(adapter, normalized, isDirectory = true).also { adapter.mkdir(it) }
+            "rename" -> findAvailablePath(adapter, normalized, isDirectory = true).also {
+                try {
+                    withTimeout(networkTimeoutMs) {
+                        adapter.mkdir(it)
+                    }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    throw IOException("网络操作超时")
+                }
+            }
             "skip" -> null
             else -> throw IOException("远端存在同名文件，无法创建文件夹: $normalized")
         }
@@ -302,8 +423,13 @@ class UploadExecutor @Inject constructor(
         options: UploadPresetOptions
     ): FileUploadPlan {
         val normalized = RemotePath.normalize(desiredPath)
-        val stat = runCatching { adapter.stat(normalized) }.getOrNull()
-            ?: return FileUploadPlan(path = normalized, startOffset = 0L)
+        val stat = try {
+            withTimeout(networkTimeoutMs) {
+                runCatching { adapter.stat(normalized) }.getOrNull()
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            throw IOException("网络操作超时")
+        } ?: return FileUploadPlan(path = normalized, startOffset = 0L)
 
         if (stat.isDirectory) {
             return when (options.overwriteMode) {
@@ -342,7 +468,14 @@ class UploadExecutor @Inject constructor(
         for (index in 1..999) {
             val candidateName = "$stem ($index)$extension"
             val candidate = RemotePath.join(parent, candidateName)
-            if (runCatching { adapter.stat(candidate) }.getOrNull() == null) {
+            val exists = try {
+                withTimeout(networkTimeoutMs) {
+                    runCatching { adapter.stat(candidate) }.getOrNull() != null
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                throw IOException("网络操作超时")
+            }
+            if (!exists) {
                 return candidate
             }
         }

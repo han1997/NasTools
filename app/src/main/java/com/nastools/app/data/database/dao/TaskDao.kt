@@ -47,6 +47,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET payloadJson = :payloadJson, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updatePayload(id: String, payloadJson: String, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE tasks SET title = :title, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateTitle(id: String, title: String, updatedAt: Long = System.currentTimeMillis())
+
     @Query("UPDATE tasks SET status = 'waiting' WHERE status = 'running'")
     suspend fun reviveInterrupted(): Int
 
