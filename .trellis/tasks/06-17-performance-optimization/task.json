@@ -1,0 +1,31 @@
+{
+  "id": "performance-optimization",
+  "name": "performance-optimization",
+  "title": "comprehensive performance optimization",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "han1997",
+  "assignee": "han1997",
+  "createdAt": "2026-06-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-17-phase1-upload-perf",
+    "06-17-phase2-ui-smooth",
+    "06-17-phase3-memory",
+    "06-17-phase4-startup"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
