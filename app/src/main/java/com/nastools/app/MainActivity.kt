@@ -15,15 +15,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // 请求通知权限
-        if (!PermissionHelper.hasNotificationPermission(this)) {
-            PermissionHelper.requestNotificationPermission(this)
-        }
-
-        // 启动 Foreground Service
+        // 立即设置内容以加快首屏渲染
         setContent {
             NasToolsTheme {
                 NasToolsNavHost()
+            }
+        }
+
+        // 延迟请求通知权限，避免阻塞首屏
+        window.decorView.post {
+            if (!PermissionHelper.hasNotificationPermission(this)) {
+                PermissionHelper.requestNotificationPermission(this)
             }
         }
     }

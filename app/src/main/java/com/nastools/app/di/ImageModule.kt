@@ -16,6 +16,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object ImageModule {
 
+    // ImageLoader is lazily initialized - only created when first accessed
     @Provides
     @Singleton
     fun provideImageLoader(@ApplicationContext context: Context): ImageLoader {

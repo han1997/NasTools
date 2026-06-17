@@ -84,13 +84,19 @@ fun HomeScreen(
                     onClick = onNavigateToTasks
                 )
             }
-            ConfigList(
-                motionEnabled = motionEnabled,
-                configs = uiState.configs,
-                onConfigClick = onNavigateToBrowser,
-                onManageClick = onNavigateToConfig,
-                onCreateClick = onNavigateToNewConfig
-            )
+
+            // 显示骨架屏加载状态以提升感知速度
+            if (uiState.isLoading) {
+                LoadingSkeleton(modifier = Modifier.fillMaxSize())
+            } else {
+                ConfigList(
+                    motionEnabled = motionEnabled,
+                    configs = uiState.configs,
+                    onConfigClick = onNavigateToBrowser,
+                    onManageClick = onNavigateToConfig,
+                    onCreateClick = onNavigateToNewConfig
+                )
+            }
         }
     }
 }
@@ -261,6 +267,76 @@ private fun ConfigCard(
             IconButton(onClick = onManageClick) {
                 Icon(Icons.Default.Edit, "编辑连接")
             }
+        }
+    }
+}
+
+@Composable
+private fun LoadingSkeleton(modifier: Modifier = Modifier) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionHeader(
+                title = "连接",
+                detail = "加载中..."
+            )
+        }
+        items(3) {
+            SkeletonCard()
+        }
+    }
+}
+
+@Composable
+private fun SkeletonCard() {
+    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "skeletonAlpha"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = NasCardShape,
+        colors = nasCardColors(),
+        border = nasCardBorder(),
+        elevation = nasCardElevation()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon placeholder
+            Surface(
+                modifier = Modifier.size(40.dp).graphicsLayer { this.alpha = alpha },
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {}
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                // Title placeholder
+                Surface(
+                    modifier = Modifier.fillMaxWidth(0.6f).height(20.dp).graphicsLayer { this.alpha = alpha },
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {}
+                Spacer(Modifier.height(8.dp))
+                // URL placeholder
+                Surface(
+                    modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).graphicsLayer { this.alpha = alpha * 0.8f },
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {}
+            }
+            Spacer(Modifier.width(48.dp))
         }
     }
 }
