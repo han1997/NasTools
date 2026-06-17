@@ -17,11 +17,20 @@ import com.nastools.app.util.RemotePath
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.io.InputStream
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
@@ -192,6 +201,11 @@ class UploadExecutor @Inject constructor(
         }
 
         var canDeleteDirectory = options.deleteAfterUpload
+
+        // Collect files to upload and subdirectories to recurse
+        val filesToUpload = mutableListOf<Triple<DocumentFile, String, Long>>()
+        val subdirectories = mutableListOf<Pair<DocumentFile, String>>()
+
         directory.listFiles().forEach { child ->
             currentCoroutineContext().ensureActive()
             val childName = child.name ?: run {
@@ -202,60 +216,115 @@ class UploadExecutor @Inject constructor(
 
             when {
                 child.isDirectory -> {
-                    val folderPath = prepareFolderTarget(adapter, desiredPath, options)
-                    if (folderPath == null) {
-                        canDeleteDirectory = false
-                        skippedFolders.add(desiredPath)
-                        markProgress(
-                            bytes = sumFileSizes(child),
-                            totalTaskBytes = totalTaskBytes,
-                            completedBytes = completedBytes,
-                            updateCompletedBytes = updateCompletedBytes,
-                            onProgress = onProgress
-                        )
-                    } else {
-                        val childMoved = uploadDirectory(
-                            adapter = adapter,
-                            directory = child,
-                            remoteDirectory = folderPath,
-                            remoteDirForTitle = remoteDirForTitle,
-                            options = options,
-                            totalTaskBytes = totalTaskBytes,
-                            completedBytes = completedBytes,
-                            updateCompletedBytes = updateCompletedBytes,
-                            warnings = warnings,
-                            skippedFolders = skippedFolders,
-                            taskId = taskId,
-                            originalTitle = originalTitle,
-                            isRoot = false,
-                            onProgress = onProgress
-                        )
-                        if (!childMoved) canDeleteDirectory = false
-                    }
+                    subdirectories.add(child to desiredPath)
                 }
-
                 child.isFile -> {
-                    val childMoved = uploadFile(
-                        adapter = adapter,
-                        uri = child.uri,
-                        localDocument = child,
-                        localName = childName,
-                        remotePath = desiredPath,
-                        fileSize = child.length().coerceAtLeast(0),
-                        options = options,
-                        totalTaskBytes = totalTaskBytes,
-                        completedBytes = completedBytes,
-                        updateCompletedBytes = updateCompletedBytes,
-                        warnings = warnings,
-                        taskId = taskId,
-                        originalTitle = originalTitle,
-                        remoteDirForTitle = remoteDirForTitle,
-                        onProgress = onProgress
-                    )
-                    if (!childMoved) canDeleteDirectory = false
+                    filesToUpload.add(Triple(child, desiredPath, child.length().coerceAtLeast(0)))
+                }
+                else -> canDeleteDirectory = false
+            }
+        }
+
+        // Process subdirectories recursively (sequential for simplicity)
+        subdirectories.forEach { (child, desiredPath) ->
+            currentCoroutineContext().ensureActive()
+            val folderPath = prepareFolderTarget(adapter, desiredPath, options)
+            if (folderPath == null) {
+                canDeleteDirectory = false
+                skippedFolders.add(desiredPath)
+                markProgress(
+                    bytes = sumFileSizes(child),
+                    totalTaskBytes = totalTaskBytes,
+                    completedBytes = completedBytes,
+                    updateCompletedBytes = updateCompletedBytes,
+                    onProgress = onProgress
+                )
+            } else {
+                val childMoved = uploadDirectory(
+                    adapter = adapter,
+                    directory = child,
+                    remoteDirectory = folderPath,
+                    remoteDirForTitle = remoteDirForTitle,
+                    options = options,
+                    totalTaskBytes = totalTaskBytes,
+                    completedBytes = completedBytes,
+                    updateCompletedBytes = updateCompletedBytes,
+                    warnings = warnings,
+                    skippedFolders = skippedFolders,
+                    taskId = taskId,
+                    originalTitle = originalTitle,
+                    isRoot = false,
+                    onProgress = onProgress
+                )
+                if (!childMoved) canDeleteDirectory = false
+            }
+        }
+
+        // Concurrent file uploads
+        if (filesToUpload.isNotEmpty()) {
+            val semaphore = Semaphore(3)
+            val fileWarnings = Collections.synchronizedList(mutableListOf<String>())
+            val progressMutex = Mutex()
+            val atomicCompletedBytes = AtomicLong(completedBytes())
+
+            coroutineScope {
+                val uploadResults = filesToUpload.map { (child, desiredPath, fileSize) ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                uploadFile(
+                                    adapter = adapter,
+                                    uri = child.uri,
+                                    localDocument = child,
+                                    localName = child.name ?: "unknown",
+                                    remotePath = desiredPath,
+                                    fileSize = fileSize,
+                                    options = options,
+                                    totalTaskBytes = totalTaskBytes,
+                                    completedBytes = { atomicCompletedBytes.get() },
+                                    updateCompletedBytes = { newValue -> atomicCompletedBytes.set(newValue) },
+                                    warnings = fileWarnings,
+                                    taskId = taskId,
+                                    originalTitle = originalTitle,
+                                    remoteDirForTitle = remoteDirForTitle,
+                                    onProgress = { uploaded, total ->
+                                        progressMutex.withLock {
+                                            onProgress(uploaded, total)
+                                        }
+                                    }
+                                )
+                            } catch (e: IOException) {
+                                // Network/config/auth failures are fatal - propagate
+                                if (e.message?.contains("网络") == true ||
+                                    e.message?.contains("NAS") == true ||
+                                    e.message?.contains("配置") == true ||
+                                    e.message?.contains("超时") == true) {
+                                    throw e
+                                }
+                                // Other IO failures (e.g., file read) are non-fatal warnings
+                                fileWarnings.add("文件上传失败: ${child.name} (${e.message})")
+                                false
+                            } catch (e: Exception) {
+                                // Unexpected errors - collect as warning but continue
+                                fileWarnings.add("文件上传失败: ${child.name} (${e.message})")
+                                false
+                            }
+                        }
+                    }
+                }.awaitAll()
+
+                // Update shared completedBytes counter after concurrent uploads complete
+                updateCompletedBytes(atomicCompletedBytes.get())
+
+                // If any file failed to move, cannot delete directory
+                if (uploadResults.any { !it }) {
+                    canDeleteDirectory = false
                 }
 
-                else -> canDeleteDirectory = false
+                // Merge file-level warnings into main warnings list
+                synchronized(warnings) {
+                    warnings.addAll(fileWarnings)
+                }
             }
         }
 
