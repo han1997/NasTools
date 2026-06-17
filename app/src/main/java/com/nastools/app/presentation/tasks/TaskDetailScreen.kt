@@ -175,7 +175,13 @@ private fun TaskDetailContent(
                         Text("上传进度", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(12.dp))
 
-                        val progress = task.progressFraction()
+                        val progress = remember(task.progressBytes, task.totalBytes) {
+                            task.progressFraction()
+                        }
+                        val progressMB = remember(task.progressBytes) { task.progressBytes / 1024 / 1024 }
+                        val totalMB = remember(task.totalBytes) { task.totalBytes / 1024 / 1024 }
+                        val progressPercent = remember(progress) { (progress * 100).toInt() }
+
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth().height(6.dp),
@@ -188,12 +194,12 @@ private fun TaskDetailContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "${task.progressBytes / 1024 / 1024}MB / ${task.totalBytes / 1024 / 1024}MB",
+                                "${progressMB}MB / ${totalMB}MB",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                "${(progress * 100).toInt()}%",
+                                "${progressPercent}%",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )

@@ -135,10 +135,11 @@ private fun PresetCard(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val motionEnabled = rememberNasMotionEnabled()
 
     Card(
         onClick = onEdit,
-        modifier = modifier.nasAnimateContentSize(rememberNasMotionEnabled()),
+        modifier = modifier.nasAnimateContentSize(motionEnabled),
         shape = NasCardShape,
         colors = nasCardColors(),
         border = nasCardBorder(),

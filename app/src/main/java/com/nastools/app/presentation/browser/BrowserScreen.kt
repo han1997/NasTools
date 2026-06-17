@@ -280,6 +280,7 @@ fun BrowserScreen(
                         items(uiState.entries, key = { it.path }) { entry ->
                             EntryGridCard(
                                 entry = entry,
+                                modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                                 onOpen = { viewModel.open(entry) },
                                 onDelete = { viewModel.delete(entry) }
                             )
@@ -497,6 +498,7 @@ private fun EntryRow(
 @Composable
 private fun EntryGridCard(
     entry: RemoteEntry,
+    modifier: Modifier = Modifier,
     onOpen: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -504,7 +506,7 @@ private fun EntryGridCard(
 
     Card(
         onClick = onOpen,
-        modifier = Modifier.aspectRatio(1f),
+        modifier = modifier.aspectRatio(1f),
         shape = NasCardShape,
         colors = nasCardColors(),
         border = nasCardBorder(),

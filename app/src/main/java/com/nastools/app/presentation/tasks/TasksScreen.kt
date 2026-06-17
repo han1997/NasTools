@@ -234,6 +234,16 @@ private fun TaskCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val motionEnabled = rememberNasMotionEnabled()
+
+    // Memoize progress calculation to avoid recomputation on every recomposition
+    val progress = remember(task.progressBytes, task.totalBytes) {
+        task.progressFraction()
+    }
+
+    // Memoize MB conversions to avoid repeated division operations
+    val progressMB = remember(task.progressBytes) { task.progressBytes / 1024 / 1024 }
+    val totalMB = remember(task.totalBytes) { task.totalBytes / 1024 / 1024 }
+
     val iconScale = if (motionEnabled && task.status == "running") {
         val transition = rememberInfiniteTransition(label = "runningTaskPulse")
         val value by transition.animateFloat(
@@ -298,7 +308,6 @@ private fun TaskCard(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                val progress = task.progressFraction()
                 val animatedProgress by animateFloatAsState(
                     targetValue = progress,
                     animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
@@ -312,11 +321,12 @@ private fun TaskCard(
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "${task.progressBytes / 1024 / 1024}MB / ${task.totalBytes / 1024 / 1024}MB",
+                        "${progressMB}MB / ${totalMB}MB",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Calculate percentage from animated progress (no need to memoize animated state)
                     Text(
                         "${(animatedProgress * 100).toInt()}%",
                         style = MaterialTheme.typography.labelMedium,
