@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development overview"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify error handling: warnings for skip, fatal for timeout"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Code quality verification"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify consistency across service, repository, DAO layers"}
+
