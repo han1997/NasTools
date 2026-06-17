@@ -105,3 +105,36 @@ Refactored UI to use unified component system (NasScaffold, NasTopAppBar, NasCar
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Fix folder upload no response issue
+
+**Date**: 2026-06-17
+**Task**: Fix folder upload no response issue
+**Branch**: `main`
+
+### Summary
+
+Fixed folder upload 'no response' issue with 4 improvements: (1) Root folder merge mode - incremental upload instead of skipping entire task when remote folder exists. (2) Progress feedback - dynamic title shows current file being uploaded. (3) Network timeout - 30s timeout for mkdir/stat/upload operations. (4) Skip feedback - warnings for skipped folders and 'all files exist' scenario. Added TaskRepository.updateTitle() and TaskDao.updateTitle() for cross-layer title updates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bc0151b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
