@@ -24,6 +24,7 @@ Errors that prevent the primary operation from succeeding:
 - Authentication failures
 - Remote path conflicts with `onConflict: "fail"`
 - Storage access denied
+- Local file read failures, including a stream ending before the expected upload size
 
 **Behavior**: Throw `IOException`, caught by `TaskManager.executeTask()`, task marked as `failed` with retry capability.
 
@@ -80,8 +81,7 @@ suspend fun execute(task: TaskEntity, onProgress: ...): String? = withContext(Di
     uploadFolder(adapter, payload, options, totalBytes, warnings, onProgress)
     
     // Return aggregated warnings (null if none)
-    return@withContext if (warnings.isEmpty()) null 
-                       else "上传完成，${warnings.size} 个本地项目未能删除"
+    return@withContext formatUploadWarnings(warnings)
 }
 
 // Cleanup operations - Non-throwing
@@ -169,7 +169,9 @@ private suspend fun executeTask(current: TaskEntity) {
 - `String`: Upload succeeded, cleanup partially failed, message contains warning summary
 
 **Warning Message Format**:
-- Template: `"上传完成，N 个本地项目未能删除"`
+- Deletion cleanup warnings use: `"上传完成，N 个本地项目未能删除"`
+- Non-deletion warnings keep their concrete message, for example `"跳过 2 个已存在的文件夹"`
+- Mixed warnings are joined with `；`
 - `N` = count of failed deletion attempts (files/subdirectories, excluding root folder)
 
 **Task Status Contract**:
@@ -186,6 +188,7 @@ private suspend fun executeTask(current: TaskEntity) {
 | Upload succeeds, some deletions fail | Warning | `completed` | `"上传完成，N 个本地项目未能删除"` |
 | Upload succeeds, root folder can't delete (SAF) | Success (by design) | `completed` | `null` |
 | Upload fails (network, config, auth) | Fatal | `failed` | Error details |
+| Local stream ends before expected size | Fatal | `failed` | `"本地文件短于预期大小: <path>"` |
 
 ### 5. Good/Base/Bad Cases
 
@@ -304,7 +307,7 @@ private fun deleteLocalSource(
 suspend fun execute(...): String? {
     val warnings = mutableListOf<String>()
     uploadFolder(..., warnings, ...) // ✅ Upload can succeed independently
-    return if (warnings.isEmpty()) null else "上传完成，${warnings.size} 个本地项目未能删除"
+    return formatUploadWarnings(warnings)
 }
 
 // TaskManager - conditional completion

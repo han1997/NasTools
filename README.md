@@ -4,15 +4,17 @@
 
 ## 项目状态
 
-✅ **已完成 Flutter → Compose 迁移** （核心架构 60%）
+✅ **已完成 Flutter → Compose 迁移，并具备 WebDAV 上传闭环**
 
 - ✅ Jetpack Compose UI
 - ✅ Room 数据库
 - ✅ OkHttp WebDAV 客户端
 - ✅ Hilt 依赖注入
 - ✅ MVVM 架构
-- ⏳ 文件浏览器（待实现）
-- ⏳ 上传功能（待实现）
+- ✅ 文件浏览器（列表/网格视图）
+- ✅ 文件/文件夹上传（冲突策略、断点续传、移动上传）
+- ✅ 任务中心、任务详情和上传预设
+- ✅ Foreground Service 后台上传通知
 
 **详细报告**：查看 `MIGRATION_REPORT.md`  
 **快速开发**：查看 `QUICKSTART.md`
@@ -79,7 +81,11 @@ app/src/main/java/com/nastools/app/
 │   └── model/          # 业务模型
 ├── presentation/       # Compose UI
 │   ├── home/           # 首页
+│   ├── browser/        # 文件浏览器与上传入口
+│   ├── config/         # WebDAV 连接配置
+│   ├── presets/        # 上传预设
 │   ├── tasks/          # 任务中心
+│   ├── settings/       # 设置页
 │   ├── theme/          # Material 3 主题
 │   └── navigation/     # 导航图
 ├── service/            # 任务管理器
@@ -92,18 +98,24 @@ app/src/main/java/com/nastools/app/
 ### 已实现 ✅
 - [x] Material 3 主题（浅色/深色）
 - [x] 首页：连接列表
-- [x] 任务中心：3 Tab（活跃/完成/失败）
-- [x] Room 数据库：配置/任务/预设/日志
+- [x] NAS 配置页面：WebDAV 地址、认证、自签名证书、连接测试
+- [x] 文件浏览器：列表/网格视图、新建文件夹、远端删除确认
+- [x] 文件/文件夹上传：冲突策略、断点续传、Wi-Fi 限制、上传后删除
+- [x] 任务中心：3 Tab（活跃/完成/失败）、暂停/恢复/取消/重试、批量删除
+- [x] 任务详情：基本信息、进度、文件列表、错误/警告
+- [x] 上传预设管理：保存来源、远端目录和上传选项
+- [x] 设置页面：通知权限、电池优化状态
+- [x] Room 数据库：配置/任务/预设
 - [x] WebDAV 客户端：CRUD 操作
 - [x] 任务管理器：协程调度 + 状态机
+- [x] Foreground Service 集成：后台上传进度通知
 
 ### 待实现 ⏳
-- [ ] 文件浏览器（列表/网格视图）
-- [ ] 文件上传（断点续传）
-- [ ] NAS 配置页面
-- [ ] 设置页面
-- [ ] 上传预设管理
-- [ ] Foreground Service 集成
+- [ ] 下载任务管理
+- [ ] 图片/媒体预览
+- [ ] SFTP / SMB 适配器
+- [ ] 凭据加密迁移
+- [ ] 真机性能基准和更多自动化测试
 
 ## 开发指南
 

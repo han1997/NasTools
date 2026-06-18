@@ -12,7 +12,12 @@
 
 ### 解决方案
 
-使用协程 + Semaphore 限流 + 原子操作保护共享状态。
+使用协程 + Semaphore 限流 + 进度聚合器保护共享状态。全局进度必须由两部分组成：
+
+1. 已完成文件/跳过文件的字节数
+2. 当前正在上传的活跃文件进度之和
+
+不要让每个并发文件直接 `set()` 全局完成字节数；这会让后完成的文件覆盖其他文件已经完成的进度。
 
 ### 实现模式
 
@@ -29,7 +34,9 @@ suspend fun uploadDirectory(...) {
     
     // 2. 并发上传（限流 + 线程安全）
     val semaphore = Semaphore(3) // 限制并发数为 3
-    val completedBytesAtomic = AtomicLong(0L) // 原子计数器
+    val progressTracker = UploadProgressTracker(totalTaskBytes = totalBytes) { uploaded, total ->
+        onProgress(uploaded, total)
+    }
     val progressMutex = Mutex() // 进度回调互斥锁
     val fileWarnings = Collections.synchronizedList(mutableListOf<String>())
     
@@ -43,27 +50,11 @@ suspend fun uploadDirectory(...) {
                             remotePath = path,
                             fileSize = size,
                             onProgress = { current, total ->
-                                // 原子更新进度
-                                completedBytesAtomic.set(current)
-                                // 串行化进度回调（避免并发 UI 更新）
-                                progressMutex.withLock {
-                                    onProgress(completedBytesAtomic.get(), totalBytes)
-                                }
+                                progressTracker.updateActive(path, current)
                             }
                         )
+                        progressTracker.finishActive(path, size)
                         if (!moved) canDeleteDirectory = false
-                    } catch (e: Exception) {
-                        when {
-                            // 致命错误：传播失败整个任务
-                            e.message?.contains("网络") == true ||
-                            e.message?.contains("配置") == true ||
-                            e.message?.contains("超时") == true -> throw e
-                            // 非致命错误：记录警告继续
-                            else -> {
-                                fileWarnings.add("文件上传失败: ${file.name}")
-                                canDeleteDirectory = false
-                            }
-                        }
                     }
                 }
             }
@@ -79,9 +70,11 @@ suspend fun uploadDirectory(...) {
 
 ### 关键要点
 
-1. **进度计数器必须用 `AtomicLong`**
-   - 多个协程并发更新 `completedBytes` 会导致竞态条件
-   - 使用 `AtomicLong.set()` / `get()` 保证原子性
+1. **进度计数器必须区分 completed 与 active**
+   - completed：已经上传完成、跳过或过滤掉的文件字节数
+   - active：正在上传的每个文件当前进度
+   - 汇总进度 = `completed + active.values.sum()`
+   - 使用 `max(lastReported, aggregate)` 保证 UI 进度不倒退
 
 2. **进度回调必须用 `Mutex` 串行化**
    - `onProgress` 触发 UI 更新，不能并发调用
@@ -97,8 +90,8 @@ suspend fun uploadDirectory(...) {
    - 使用 `semaphore.withPermit` 自动管理许可
 
 5. **错误分类在并发场景仍然适用**
-   - 致命错误（网络、配置、超时）必须传播（`throw e`）
-   - 非致命错误（单个文件失败）记录警告（`fileWarnings.add`）
+   - 上传、读取、认证、配置、远端冲突等主操作失败必须传播（`throw e`），让任务进入 `failed`
+   - 只有上传成功后的清理失败（例如本地删除失败）记录为 warning，并允许任务 `completed`
 
 ### 错误示例
 
@@ -122,23 +115,82 @@ coroutineScope {
 - `completedBytes` 不是原子操作，多个协程并发写入会丢失更新
 - `onProgress` 并发调用导致 UI 更新混乱
 
-#### 正确：原子操作 + 互斥锁
+#### 正确：completed + active 聚合 + 互斥锁
 
 ```kotlin
 // ✅ 正确：线程安全
-val completedBytesAtomic = AtomicLong(0L)
 val progressMutex = Mutex()
+var completedBytes = 0L
+val activeProgress = mutableMapOf<String, Long>()
 coroutineScope {
     files.map { file ->
         async {
-            uploadFile(...)
-            completedBytesAtomic.addAndGet(file.size) // 原子递增
-            progressMutex.withLock { // 串行化回调
-                onProgress(completedBytesAtomic.get(), total)
+            uploadFile(
+                onFileProgress = { fileProgress ->
+                    progressMutex.withLock {
+                        activeProgress[file.path] = fileProgress
+                        onProgress(completedBytes + activeProgress.values.sum(), total)
+                    }
+                }
+            )
+            progressMutex.withLock {
+                activeProgress.remove(file.path)
+                completedBytes += file.size
+                onProgress(completedBytes + activeProgress.values.sum(), total)
             }
         }
     }.awaitAll()
 }
+```
+
+### Scenario: Concurrent Upload Progress Contract
+
+#### 1. Scope / Trigger
+- Trigger: Any change to folder upload concurrency, progress reporting, or task progress persistence.
+
+#### 2. Signatures
+- `UploadProgressTracker.updateActive(key: String, uploadedBytes: Long)`
+- `UploadProgressTracker.finishActive(key: String, completedFileBytes: Long)`
+- `UploadProgressTracker.markComplete(bytes: Long)`
+
+#### 3. Contracts
+- `key` must be stable per remote file path.
+- `uploadedBytes` is file-local progress, not global task progress.
+- `finishActive` moves one file from active progress into completed bytes.
+- `markComplete` is for skipped/filtered items that should count toward task progress.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Result |
+|-----------|--------|
+| Two files upload concurrently | Aggregate reports sum of both active progresses |
+| One file completes while another is active | Completed bytes + remaining active bytes are reported |
+| Active progress decreases or clears after failure | Reported task progress must not move backward |
+| File read/upload fails | Throw; task must become `failed` |
+| Post-upload local delete fails | Warning; task may become `completed` with `errorMessage` |
+
+#### 5. Good/Base/Bad Cases
+- Good: `a=50`, `b=70`, then `a complete 100` reports `50 -> 120 -> 170`.
+- Base: skipped folder calls `markComplete(size)` so UI does not appear stuck.
+- Bad: each file calls `globalProgress.set(fileBase + progress)`, losing other files' bytes.
+
+#### 6. Tests Required
+- Unit test progress aggregation with two active files.
+- Unit test progress never moves backward.
+- Unit test unknown total reports uploaded bytes as total.
+- Regression test short local reads fail instead of being coerced to success.
+
+#### 7. Wrong vs Correct
+
+Wrong:
+```kotlin
+updateCompletedBytes(completedBeforeFile + fileProgress)
+```
+
+Correct:
+```kotlin
+progressTracker.updateActive(remotePath, fileProgress)
+progressTracker.finishActive(remotePath, completedFileBytes)
 ```
 
 ### 性能考虑
