@@ -67,7 +67,7 @@ class ConfigEditViewModel @Inject constructor(
                 name = config.name,
                 baseUrl = config.baseUrl,
                 username = config.username,
-                password = config.passwordEncrypted,
+                password = config.password,
                 defaultRemotePath = config.defaultRemotePath ?: "/",
                 trustSelfSigned = config.trustSelfSigned,
                 isLoading = false
@@ -157,7 +157,7 @@ class ConfigEditViewModel @Inject constructor(
             type = "webdav",
             baseUrl = state.baseUrl.trim().trimEnd('/'),
             username = state.username.trim(),
-            passwordEncrypted = state.password,
+            password = state.password,
             trustSelfSigned = state.trustSelfSigned,
             defaultRemotePath = state.defaultRemotePath.ifBlank { "/" },
             extraJson = original?.extraJson,

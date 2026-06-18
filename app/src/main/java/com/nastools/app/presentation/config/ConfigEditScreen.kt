@@ -139,6 +139,13 @@ fun ConfigEditScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 singleLine = true
             )
+            if (uiState.baseUrl.trim().startsWith("http://", ignoreCase = true)) {
+                Text(
+                    "当前使用 HTTP 明文连接，密码和文件名可能被局域网内其他设备截获；建议优先使用 HTTPS。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             OutlinedTextField(
                 value = uiState.username,

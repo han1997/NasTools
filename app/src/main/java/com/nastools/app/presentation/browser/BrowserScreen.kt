@@ -93,6 +93,7 @@ fun BrowserScreen(
     var folderName by remember { mutableStateOf("") }
     var showUploadMenu by remember { mutableStateOf(false) }
     var uploadDraft by remember { mutableStateOf<UploadDraft?>(null) }
+    var entryPendingDelete by remember { mutableStateOf<RemoteEntry?>(null) }
     val motionEnabled = rememberNasMotionEnabled()
 
     fun draftFromUri(uri: android.net.Uri, sourceType: String): UploadDraft {
@@ -169,6 +170,30 @@ fun BrowserScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCreateFolderDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    entryPendingDelete?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { entryPendingDelete = null },
+            icon = { Icon(Icons.Default.Delete, null) },
+            title = { Text("删除${if (entry.isDirectory) "文件夹" else "文件"}") },
+            text = { Text("确定要删除 ${entry.name} 吗？此操作会直接删除 NAS 上的远端项目，无法撤销。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.delete(entry)
+                        entryPendingDelete = null
+                    }
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { entryPendingDelete = null }) {
                     Text("取消")
                 }
             }
@@ -282,7 +307,7 @@ fun BrowserScreen(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                                 onOpen = { viewModel.open(entry) },
-                                onDelete = { viewModel.delete(entry) }
+                                onDelete = { entryPendingDelete = entry }
                             )
                         }
                     }
@@ -299,7 +324,7 @@ fun BrowserScreen(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                                 onOpen = { viewModel.open(entry) },
-                                onDelete = { viewModel.delete(entry) }
+                                onDelete = { entryPendingDelete = entry }
                             )
                         }
                     }

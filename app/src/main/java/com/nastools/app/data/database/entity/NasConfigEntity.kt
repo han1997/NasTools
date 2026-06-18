@@ -2,6 +2,7 @@ package com.nastools.app.data.database.entity
 
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(
@@ -15,7 +16,8 @@ data class NasConfigEntity(
     val type: String, // "webdav", "sftp", "smb"
     val baseUrl: String,
     val username: String,
-    val passwordEncrypted: String,
+    @ColumnInfo(name = "passwordEncrypted")
+    val password: String,
     val trustSelfSigned: Boolean = false,
     val defaultRemotePath: String? = null,
     val extraJson: String? = null,

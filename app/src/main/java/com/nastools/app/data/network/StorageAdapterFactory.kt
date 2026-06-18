@@ -27,8 +27,8 @@ class StorageAdapterFactory @Inject constructor(
 
     private fun clientFor(config: NasConfigEntity): OkHttpClient {
         val builder = baseClient.newBuilder()
-        if (config.username.isNotBlank() || config.passwordEncrypted.isNotBlank()) {
-            builder.addInterceptor(AuthInterceptor(config.username, config.passwordEncrypted))
+        if (config.username.isNotBlank() || config.password.isNotBlank()) {
+            builder.addInterceptor(AuthInterceptor(config.username, config.password))
         }
         if (config.trustSelfSigned) {
             val host = runCatching { URI(config.baseUrl.trim()).host }.getOrNull().orEmpty()

@@ -47,6 +47,7 @@ fun TasksScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val motionEnabled = rememberNasMotionEnabled()
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
+    var taskPendingDelete by remember { mutableStateOf<TaskEntity?>(null) }
 
     val canBatchDelete = selectedTab in setOf(1, 2) // Completed or Failed tabs
 
@@ -141,7 +142,7 @@ fun TasksScreen(
                     selectedTaskIds = uiState.selectedTaskIds,
                     onTaskClick = { if (!uiState.isSelectionMode) onNavigateToDetail(it.id) else viewModel.toggleTaskSelection(it.id) },
                     onAction = { task, action ->
-                        if (action == "delete") viewModel.deleteTask(task.id)
+                        if (action == "delete") taskPendingDelete = task
                     },
                     motionEnabled = motionEnabled
                 )
@@ -153,7 +154,7 @@ fun TasksScreen(
                     onAction = { task, action ->
                         when (action) {
                             "retry" -> viewModel.retryTask(task.id)
-                            "delete" -> viewModel.deleteTask(task.id)
+                            "delete" -> taskPendingDelete = task
                         }
                     },
                     motionEnabled = motionEnabled
@@ -180,6 +181,30 @@ fun TasksScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showBatchDeleteDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    taskPendingDelete?.let { task ->
+        AlertDialog(
+            onDismissRequest = { taskPendingDelete = null },
+            icon = { Icon(Icons.Default.Delete, null) },
+            title = { Text("删除任务") },
+            text = { Text("确定要删除任务 ${task.title} 吗？此操作只删除任务记录，不会删除 NAS 上的文件。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteTask(task.id)
+                        taskPendingDelete = null
+                    }
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskPendingDelete = null }) {
                     Text("取消")
                 }
             }

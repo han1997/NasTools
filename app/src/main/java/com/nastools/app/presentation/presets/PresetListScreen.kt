@@ -23,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -31,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,12 +70,37 @@ fun PresetListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val transientMessage = uiState.errorMessage ?: uiState.message
     val motionEnabled = rememberNasMotionEnabled()
+    var presetPendingDelete by remember { mutableStateOf<UploadPresetEntity?>(null) }
 
     LaunchedEffect(transientMessage) {
         if (!transientMessage.isNullOrBlank()) {
             snackbarHostState.showSnackbar(transientMessage)
             viewModel.clearTransientMessage()
         }
+    }
+
+    presetPendingDelete?.let { preset ->
+        AlertDialog(
+            onDismissRequest = { presetPendingDelete = null },
+            icon = { Icon(Icons.Default.Delete, null) },
+            title = { Text("删除预设") },
+            text = { Text("确定要删除预设 ${preset.name} 吗？此操作无法撤销，不会删除已创建的上传任务。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePreset(preset.id)
+                        presetPendingDelete = null
+                    }
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { presetPendingDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     NasScaffold(
@@ -117,7 +144,7 @@ fun PresetListScreen(
                         configName = uiState.configNames[preset.nasConfigId] ?: "未知连接",
                         onRun = { viewModel.runPreset(preset.id) },
                         onEdit = { onEditPreset(preset.id) },
-                        onDelete = { viewModel.deletePreset(preset.id) }
+                        onDelete = { presetPendingDelete = preset }
                     )
                 }
             }
