@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-06-17
+- **Total Sessions**: 8
+- **Last Active**: 2026-06-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~243 | Active |
+| `journal-1.md` | ~278 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-06-18 | Upload reliability hardening | `2950fce`, `f067408`, `7fc894f` | `main` |
 | 7 | 2026-06-17 | Wrap-up: archive bootstrap-guidelines task | - | `main` |
 | 6 | 2026-06-17 | Comprehensive performance optimization (4 phases) | `d77050e`, `539afd8`, `e40a5af`, `9d4d024`, `38f6afa`, `b4a0414` | `main` |
 | 5 | 2026-06-17 | Phase 1: Concurrent upload optimization | `d77050e`, `539afd8` | `main` |

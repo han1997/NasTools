@@ -241,3 +241,38 @@ Cleaned up the leftover 00-bootstrap-guidelines task (in_progress) by archiving 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Upload reliability hardening
+
+**Date**: 2026-06-18
+**Task**: Upload reliability hardening
+**Branch**: `main`
+
+### Summary
+
+Hardened upload progress/error handling, added safer destructive-action confirmations and plaintext connection warnings, and updated project docs/specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2950fce` | (see git log) |
+| `f067408` | (see git log) |
+| `7fc894f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
