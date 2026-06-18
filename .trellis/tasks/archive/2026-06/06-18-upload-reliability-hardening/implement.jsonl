@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Upload task status must preserve fatal vs non-fatal warning semantics."}
+{"file": ".trellis/spec/backend/concurrency-patterns.md", "reason": "UploadExecutor changes touch concurrent folder uploads and shared progress state."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Task status/progress/title updates flow through Room DAO and repository methods."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Implementation should add focused tests and avoid broad refactors."}
+{"file": ".trellis/spec/frontend/compose-optimization.md", "reason": "Dangerous-action UI changes should preserve existing Compose performance patterns."}

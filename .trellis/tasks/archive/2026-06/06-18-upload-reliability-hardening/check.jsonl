@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify task completion/failure/warning behavior against project contract."}
+{"file": ".trellis/spec/backend/concurrency-patterns.md", "reason": "Verify concurrent upload progress is thread-safe and monotonic."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify tests, lint, and scoped implementation quality."}
+{"file": ".trellis/spec/frontend/compose-optimization.md", "reason": "Verify UI confirmation changes do not regress Compose list/card patterns."}
