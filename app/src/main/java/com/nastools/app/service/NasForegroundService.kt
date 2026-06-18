@@ -176,13 +176,14 @@ class NasForegroundService : LifecycleService() {
             "NasTools:upload"
         ).apply {
             setReferenceCounted(false)
-            acquire(10 * 60 * 1000L)
+            acquire(WAKE_LOCK_TIMEOUT_MS)
         }
     }
 
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "nastools.transfer"
+        private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60L * 60L * 1000L
 
         const val ACTION_START = "com.nastools.app.action.START"
         const val ACTION_STOP = "com.nastools.app.action.STOP"

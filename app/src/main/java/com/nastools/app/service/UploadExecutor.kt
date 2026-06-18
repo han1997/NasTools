@@ -18,7 +18,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.io.InputStream
 import java.util.Collections
-import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +32,72 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+
+internal class UploadProgressTracker(
+    initialCompletedBytes: Long = 0,
+    private val totalTaskBytes: Long,
+    private val onProgress: suspend (Long, Long) -> Unit
+) {
+    private val mutex = Mutex()
+    private val activeFileProgress = mutableMapOf<String, Long>()
+    private var completedBytes = initialCompletedBytes.coerceAtLeast(0)
+    private var lastReportedBytes = initialCompletedBytes.coerceAtLeast(0)
+
+    suspend fun markComplete(bytes: Long) {
+        mutex.withLock {
+            completedBytes += bytes.coerceAtLeast(0)
+            emitLocked()
+        }
+    }
+
+    suspend fun updateActive(key: String, uploadedBytes: Long) {
+        mutex.withLock {
+            activeFileProgress[key] = uploadedBytes.coerceAtLeast(0)
+            emitLocked()
+        }
+    }
+
+    suspend fun finishActive(key: String, completedFileBytes: Long) {
+        mutex.withLock {
+            activeFileProgress.remove(key)
+            completedBytes += completedFileBytes.coerceAtLeast(0)
+            emitLocked()
+        }
+    }
+
+    suspend fun clearActive(key: String) {
+        mutex.withLock {
+            activeFileProgress.remove(key)
+        }
+    }
+
+    suspend fun completedBytes(): Long {
+        return mutex.withLock { completedBytes }
+    }
+
+    private suspend fun emitLocked() {
+        val activeBytes = activeFileProgress.values.sum()
+        val aggregate = completedBytes + activeBytes
+        val capped = if (totalTaskBytes > 0) aggregate.coerceAtMost(totalTaskBytes) else aggregate
+        val reportedBytes = maxOf(lastReportedBytes, capped)
+        lastReportedBytes = reportedBytes
+        val reportedTotal = if (totalTaskBytes > 0) totalTaskBytes else reportedBytes
+        onProgress(reportedBytes, reportedTotal)
+    }
+}
+
+internal fun formatUploadWarnings(warnings: List<String>): String? {
+    if (warnings.isEmpty()) return null
+
+    val deletionWarnings = warnings.filter { it.startsWith("本地") }
+    val otherWarnings = warnings.filterNot { it.startsWith("本地") }.distinct()
+    val messages = mutableListOf<String>()
+    if (deletionWarnings.isNotEmpty()) {
+        messages += "上传完成，${deletionWarnings.size} 个本地项目未能删除"
+    }
+    messages += otherWarnings
+    return messages.joinToString("；")
+}
 
 @Singleton
 class UploadExecutor @Inject constructor(
@@ -61,6 +126,7 @@ class UploadExecutor @Inject constructor(
         val adapter = adapterFactory.create(config)
         val totalBytes = payload.totalBytes.takeIf { it > 0 } ?: task.totalBytes
         val sourceType = payload.sourceType.ifBlank { options.sourceType }
+        val progressTracker = UploadProgressTracker(totalTaskBytes = totalBytes, onProgress = onProgress)
 
         val warnings = mutableListOf<String>()
 
@@ -74,10 +140,9 @@ class UploadExecutor @Inject constructor(
                     warnings = warnings,
                     taskId = task.id,
                     originalTitle = task.title,
-                    onProgress = onProgress
+                    progressTracker = progressTracker
                 )
             } else {
-                var completedBytes = 0L
                 val remotePath = RemotePath.normalize(payload.remotePath)
                 uploadFile(
                     adapter = adapter,
@@ -87,14 +152,12 @@ class UploadExecutor @Inject constructor(
                     remotePath = remotePath,
                     fileSize = totalBytes,
                     options = options.copy(sourceType = "file"),
-                    totalTaskBytes = totalBytes,
-                    completedBytes = { completedBytes },
-                    updateCompletedBytes = { completedBytes = it },
                     warnings = warnings,
                     taskId = task.id,
                     originalTitle = task.title,
                     remoteDirForTitle = RemotePath.parent(remotePath),
-                    onProgress = onProgress
+                    progressTracker = progressTracker,
+                    progressKey = remotePath
                 )
             }
         } finally {
@@ -102,7 +165,7 @@ class UploadExecutor @Inject constructor(
             taskRepository.updateTitle(task.id, task.title)
         }
 
-        return@withContext if (warnings.isEmpty()) null else "上传完成，${warnings.size} 个本地项目未能删除"
+        return@withContext formatUploadWarnings(warnings)
     }
 
     private suspend fun uploadFolder(
@@ -113,7 +176,7 @@ class UploadExecutor @Inject constructor(
         warnings: MutableList<String>,
         taskId: String,
         originalTitle: String,
-        onProgress: suspend (Long, Long) -> Unit
+        progressTracker: UploadProgressTracker
     ) {
         val root = DocumentFile.fromTreeUri(context, Uri.parse(payload.localUri))
             ?: throw IOException("无法打开本地文件夹")
@@ -125,26 +188,22 @@ class UploadExecutor @Inject constructor(
 
         if (remoteRoot == null) {
             // Root folder exists and skip mode - upload contents in merge mode
-            var completedBytes = 0L
             uploadDirectory(
                 adapter = adapter,
                 directory = root,
                 remoteDirectory = rootPath,
                 remoteDirForTitle = rootPath,
                 options = options,
-                totalTaskBytes = totalBytes,
-                completedBytes = { completedBytes },
-                updateCompletedBytes = { completedBytes = it },
                 warnings = warnings,
                 skippedFolders = skippedFolders,
                 taskId = taskId,
                 originalTitle = originalTitle,
                 isRoot = true,
-                onProgress = onProgress
+                progressTracker = progressTracker
             )
 
             // If nothing was uploaded, set warning
-            if (completedBytes == 0L) {
+            if (progressTracker.completedBytes() == 0L) {
                 warnings.add("所有文件已存在，跳过上传（已上传 0 字节）")
             }
             if (skippedFolders.isNotEmpty()) {
@@ -153,22 +212,18 @@ class UploadExecutor @Inject constructor(
             return
         }
 
-        var completedBytes = 0L
         uploadDirectory(
             adapter = adapter,
             directory = root,
             remoteDirectory = remoteRoot,
             remoteDirForTitle = remoteRoot,
             options = options,
-            totalTaskBytes = totalBytes,
-            completedBytes = { completedBytes },
-            updateCompletedBytes = { completedBytes = it },
             warnings = warnings,
             skippedFolders = skippedFolders,
             taskId = taskId,
             originalTitle = originalTitle,
             isRoot = true,
-            onProgress = onProgress
+            progressTracker = progressTracker
         )
 
         if (skippedFolders.isNotEmpty()) {
@@ -182,15 +237,12 @@ class UploadExecutor @Inject constructor(
         remoteDirectory: String,
         remoteDirForTitle: String,
         options: UploadPresetOptions,
-        totalTaskBytes: Long,
-        completedBytes: () -> Long,
-        updateCompletedBytes: (Long) -> Unit,
         warnings: MutableList<String>,
         skippedFolders: MutableList<String>,
         taskId: String,
         originalTitle: String,
         isRoot: Boolean = false,
-        onProgress: suspend (Long, Long) -> Unit
+        progressTracker: UploadProgressTracker
     ): Boolean {
         try {
             withTimeout(networkTimeoutMs) {
@@ -232,13 +284,7 @@ class UploadExecutor @Inject constructor(
             if (folderPath == null) {
                 canDeleteDirectory = false
                 skippedFolders.add(desiredPath)
-                markProgress(
-                    bytes = sumFileSizes(child),
-                    totalTaskBytes = totalTaskBytes,
-                    completedBytes = completedBytes,
-                    updateCompletedBytes = updateCompletedBytes,
-                    onProgress = onProgress
-                )
+                progressTracker.markComplete(sumFileSizes(child))
             } else {
                 val childMoved = uploadDirectory(
                     adapter = adapter,
@@ -246,15 +292,12 @@ class UploadExecutor @Inject constructor(
                     remoteDirectory = folderPath,
                     remoteDirForTitle = remoteDirForTitle,
                     options = options,
-                    totalTaskBytes = totalTaskBytes,
-                    completedBytes = completedBytes,
-                    updateCompletedBytes = updateCompletedBytes,
                     warnings = warnings,
                     skippedFolders = skippedFolders,
                     taskId = taskId,
                     originalTitle = originalTitle,
                     isRoot = false,
-                    onProgress = onProgress
+                    progressTracker = progressTracker
                 )
                 if (!childMoved) canDeleteDirectory = false
             }
@@ -264,57 +307,29 @@ class UploadExecutor @Inject constructor(
         if (filesToUpload.isNotEmpty()) {
             val semaphore = Semaphore(3)
             val fileWarnings = Collections.synchronizedList(mutableListOf<String>())
-            val progressMutex = Mutex()
-            val atomicCompletedBytes = AtomicLong(completedBytes())
 
             coroutineScope {
                 val uploadResults = filesToUpload.map { (child, desiredPath, fileSize) ->
                     async(Dispatchers.IO) {
                         semaphore.withPermit {
-                            try {
-                                uploadFile(
-                                    adapter = adapter,
-                                    uri = child.uri,
-                                    localDocument = child,
-                                    localName = child.name ?: "unknown",
-                                    remotePath = desiredPath,
-                                    fileSize = fileSize,
-                                    options = options,
-                                    totalTaskBytes = totalTaskBytes,
-                                    completedBytes = { atomicCompletedBytes.get() },
-                                    updateCompletedBytes = { newValue -> atomicCompletedBytes.set(newValue) },
-                                    warnings = fileWarnings,
-                                    taskId = taskId,
-                                    originalTitle = originalTitle,
-                                    remoteDirForTitle = remoteDirForTitle,
-                                    onProgress = { uploaded, total ->
-                                        progressMutex.withLock {
-                                            onProgress(uploaded, total)
-                                        }
-                                    }
-                                )
-                            } catch (e: IOException) {
-                                // Network/config/auth failures are fatal - propagate
-                                if (e.message?.contains("网络") == true ||
-                                    e.message?.contains("NAS") == true ||
-                                    e.message?.contains("配置") == true ||
-                                    e.message?.contains("超时") == true) {
-                                    throw e
-                                }
-                                // Other IO failures (e.g., file read) are non-fatal warnings
-                                fileWarnings.add("文件上传失败: ${child.name} (${e.message})")
-                                false
-                            } catch (e: Exception) {
-                                // Unexpected errors - collect as warning but continue
-                                fileWarnings.add("文件上传失败: ${child.name} (${e.message})")
-                                false
-                            }
+                            uploadFile(
+                                adapter = adapter,
+                                uri = child.uri,
+                                localDocument = child,
+                                localName = child.name ?: "unknown",
+                                remotePath = desiredPath,
+                                fileSize = fileSize,
+                                options = options,
+                                warnings = fileWarnings,
+                                taskId = taskId,
+                                originalTitle = originalTitle,
+                                remoteDirForTitle = remoteDirForTitle,
+                                progressTracker = progressTracker,
+                                progressKey = desiredPath
+                            )
                         }
                     }
                 }.awaitAll()
-
-                // Update shared completedBytes counter after concurrent uploads complete
-                updateCompletedBytes(atomicCompletedBytes.get())
 
                 // If any file failed to move, cannot delete directory
                 if (uploadResults.any { !it }) {
@@ -352,20 +367,18 @@ class UploadExecutor @Inject constructor(
         remotePath: String,
         fileSize: Long,
         options: UploadPresetOptions,
-        totalTaskBytes: Long,
-        completedBytes: () -> Long,
-        updateCompletedBytes: (Long) -> Unit,
         warnings: MutableList<String>,
         taskId: String,
         originalTitle: String,
         remoteDirForTitle: String,
-        onProgress: suspend (Long, Long) -> Unit
+        progressTracker: UploadProgressTracker,
+        progressKey: String
     ): Boolean {
         val filterRegex = options.filterRegex?.takeIf { it.isNotBlank() }?.let {
             runCatching { Regex(it) }.getOrElse { throw IOException("过滤正则格式不正确") }
         }
         if (filterRegex != null && !filterRegex.containsMatchIn(localName)) {
-            markProgress(fileSize, totalTaskBytes, completedBytes, updateCompletedBytes, onProgress)
+            progressTracker.markComplete(fileSize)
             return false
         }
 
@@ -379,7 +392,7 @@ class UploadExecutor @Inject constructor(
 
         val plan = prepareFileTarget(adapter, remotePath, fileSize, options)
         if (plan.skip) {
-            markProgress(fileSize, totalTaskBytes, completedBytes, updateCompletedBytes, onProgress)
+            progressTracker.markComplete(fileSize)
             return false
         }
 
@@ -388,33 +401,37 @@ class UploadExecutor @Inject constructor(
         val newTitle = "$originalTitle > 当前：$relativePath"
         taskRepository.updateTitle(taskId, newTitle)
 
-        val completedBeforeFile = completedBytes()
-        val uploadedBytes = uploadFromUri(
-            uri = uri,
-            remotePath = plan.path,
-            startOffset = plan.startOffset,
-            totalBytes = fileSize,
-            chunkSize = options.chunkSizeMb.coerceIn(1, 128) * 1024 * 1024,
-            uploadChunk = { bytes, offset ->
-                try {
-                    withTimeout(networkTimeoutMs) {
-                        adapter.upload(
-                            path = plan.path,
-                            data = bytes,
-                            offset = offset,
-                            totalLength = fileSize.takeIf { it > 0 }
-                        )
+        val uploadedBytes = try {
+            uploadFromUri(
+                uri = uri,
+                remotePath = plan.path,
+                startOffset = plan.startOffset,
+                totalBytes = fileSize,
+                chunkSize = options.chunkSizeMb.coerceIn(1, 128) * 1024 * 1024,
+                uploadChunk = { bytes, offset ->
+                    try {
+                        withTimeout(networkTimeoutMs) {
+                            adapter.upload(
+                                path = plan.path,
+                                data = bytes,
+                                offset = offset,
+                                totalLength = fileSize.takeIf { it > 0 }
+                            )
+                        }
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        throw IOException("网络操作超时")
                     }
-                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                    throw IOException("网络操作超时")
+                },
+                onFileProgress = { fileProgress, _ ->
+                    progressTracker.updateActive(progressKey, fileProgress)
                 }
-            },
-            onFileProgress = { fileProgress, _ ->
-                onProgress(completedBeforeFile + fileProgress, totalTaskBytes)
-            }
-        )
+            )
+        } catch (e: Exception) {
+            progressTracker.clearActive(progressKey)
+            throw e
+        }
 
-        updateCompletedBytes(completedBeforeFile + (fileSize.takeIf { it > 0 } ?: uploadedBytes))
+        progressTracker.finishActive(progressKey, fileSize.takeIf { it > 0 } ?: uploadedBytes)
 
         if (options.deleteAfterUpload) {
             val deleted = deleteLocalSource(
@@ -596,20 +613,11 @@ class UploadExecutor @Inject constructor(
                 uploaded += read
                 onFileProgress(uploaded.coerceAtMost(totalBytes), totalBytes)
             }
-            return uploaded.coerceAtLeast(totalBytes)
+            if (uploaded < totalBytes) {
+                throw IOException("本地文件短于预期大小: $remotePath")
+            }
+            return uploaded
         } ?: throw IOException("无法打开本地文件: $remotePath")
-    }
-
-    private suspend fun markProgress(
-        bytes: Long,
-        totalTaskBytes: Long,
-        completedBytes: () -> Long,
-        updateCompletedBytes: (Long) -> Unit,
-        onProgress: suspend (Long, Long) -> Unit
-    ) {
-        val updated = completedBytes() + bytes.coerceAtLeast(0)
-        updateCompletedBytes(updated)
-        onProgress(updated, totalTaskBytes)
     }
 
     private fun deleteLocalSource(
