@@ -276,3 +276,37 @@ Hardened upload progress/error handling, added safer destructive-action confirma
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: NAS media online browsing
+
+**Date**: 2026-06-19
+**Task**: NAS media online browsing
+**Branch**: `main`
+
+### Summary
+
+Added WebDAV-backed image preview and basic Media3 video playback with previous/next media navigation, plus docs and range-streaming spec notes.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d16158b` | (see git log) |
+| `1ea9544` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
