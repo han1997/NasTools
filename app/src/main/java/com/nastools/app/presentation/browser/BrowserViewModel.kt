@@ -13,6 +13,7 @@ import com.nastools.app.domain.model.UploadPresetOptions
 import com.nastools.app.domain.model.UploadPresetOptionsCodec
 import com.nastools.app.service.LocalFileMetadata
 import com.nastools.app.service.UploadTaskCreator
+import com.nastools.app.util.RemoteMedia
 import com.nastools.app.util.RemotePath
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
@@ -79,6 +80,12 @@ class BrowserViewModel @Inject constructor(
 
     fun open(entry: RemoteEntry) {
         if (entry.isDirectory) loadPath(entry.path)
+    }
+
+    fun showUnsupportedFile(entry: RemoteEntry) {
+        if (!entry.isDirectory && !RemoteMedia.isSupported(entry)) {
+            _uiState.update { it.copy(message = "Preview is not supported for this file") }
+        }
     }
 
     fun goUp() {

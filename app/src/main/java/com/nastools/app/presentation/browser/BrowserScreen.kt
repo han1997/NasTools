@@ -79,13 +79,15 @@ import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
 import com.nastools.app.util.BytesFormat
+import com.nastools.app.util.RemoteMedia
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BrowserScreen(
     configId: String,
     viewModel: BrowserViewModel = hiltViewModel(),
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onOpenMedia: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -103,6 +105,14 @@ fun BrowserScreen(
             ?.ifBlank { null }
             ?: if (sourceType == "folder") "folder" else "upload.bin"
         return UploadDraft(uri.toString(), sourceType, label)
+    }
+
+    fun openEntry(entry: RemoteEntry) {
+        when {
+            entry.isDirectory -> viewModel.open(entry)
+            RemoteMedia.isSupported(entry) -> onOpenMedia(entry.path)
+            else -> viewModel.showUnsupportedFile(entry)
+        }
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -306,7 +316,7 @@ fun BrowserScreen(
                             EntryGridCard(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
-                                onOpen = { viewModel.open(entry) },
+                                onOpen = { openEntry(entry) },
                                 onDelete = { entryPendingDelete = entry }
                             )
                         }
@@ -323,7 +333,7 @@ fun BrowserScreen(
                             EntryRow(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
-                                onOpen = { viewModel.open(entry) },
+                                onOpen = { openEntry(entry) },
                                 onDelete = { entryPendingDelete = entry }
                             )
                         }

@@ -96,6 +96,10 @@ dependencies {
     implementation("io.coil-kt:coil:2.5.0")
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // Online media playback
+    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-ui:1.3.1")
+
     // LeakCanary for memory leak detection (debug only)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.12")
 

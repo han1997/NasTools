@@ -1,5 +1,6 @@
 package com.nastools.app.presentation.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -8,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.nastools.app.presentation.browser.BrowserScreen
 import com.nastools.app.presentation.config.ConfigEditScreen
 import com.nastools.app.presentation.home.HomeScreen
+import com.nastools.app.presentation.media.MediaViewerScreen
 import com.nastools.app.presentation.presets.PresetEditScreen
 import com.nastools.app.presentation.presets.PresetListScreen
 import com.nastools.app.presentation.settings.SettingsScreen
@@ -74,8 +76,17 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
             )
         }
         composable("browser/{id}") { backStackEntry ->
+            val configId = backStackEntry.arguments?.getString("id").orEmpty()
             BrowserScreen(
-                configId = backStackEntry.arguments?.getString("id").orEmpty(),
+                configId = configId,
+                onBack = { navController.popBackStack() },
+                onOpenMedia = { remotePath ->
+                    navController.navigate("media/$configId?path=${Uri.encode(remotePath)}")
+                }
+            )
+        }
+        composable("media/{configId}?path={path}") {
+            MediaViewerScreen(
                 onBack = { navController.popBackStack() }
             )
         }

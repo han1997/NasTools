@@ -74,6 +74,9 @@ class WebDavClient(
         }
 
         return execute(builder.get().build(), "GET") { response ->
+            if ((start != null || end != null) && response.code != 206) {
+                throw IOException("Server does not support range reads")
+            }
             response.body?.bytes() ?: throw IOException("Empty response")
         }
     }
