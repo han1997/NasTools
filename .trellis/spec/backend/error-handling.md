@@ -323,6 +323,69 @@ if (warning != null) {
 
 ---
 
+## Scenario: Remote Media Range Streaming
+
+### 1. Scope / Trigger
+- Trigger: Any online media preview/playback feature that reads remote NAS content through `StorageAdapter.download()`.
+- Layers: WebDAV client -> storage adapter -> Media3 data source -> Compose media viewer.
+- Goal: Video playback must stream bounded ranges and must not silently fall back to reading a whole remote video into memory.
+
+### 2. Signatures
+
+```kotlin
+// StorageAdapter.kt
+suspend fun download(path: String, start: Long? = null, end: Long? = null): ByteArray
+
+// WebDavClient.kt
+suspend fun get(path: String, start: Long? = null, end: Long? = null): ByteArray
+
+// RemoteMediaDataSource.kt
+override fun read(buffer: ByteArray, offset: Int, length: Int): Int
+```
+
+### 3. Contracts
+- `start` / `end` present means the caller requires an HTTP Range response.
+- For ranged reads, WebDAV must return HTTP `206 Partial Content`; HTTP `200 OK` is an error because it may contain the whole file.
+- `RemoteMediaDataSource` must request bounded chunks and copy them into Media3 buffers.
+- Image preview may use full-byte reads only with an explicit size cap.
+- Video playback must use range reads and must not call `download(path)` without bounds.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+|-----------|--------|
+| Range request returns 206 | DataSource consumes the returned chunk |
+| Range request returns 200 | Throw `IOException("Server does not support range reads")` |
+| Network/auth/server failure | Propagate as playback/viewer error |
+| Range response is larger than requested chunk | Throw `IOException` |
+| Image exceeds preview size cap | Show preview error, do not load bytes into UI |
+
+### 5. Good/Base/Bad Cases
+- Good: Media3 asks for bytes `1048576-1310719`; WebDAV returns 206 and only that chunk is buffered.
+- Base: Server does not support Range; viewer shows a clear playback error and does not crash.
+- Bad: Video viewer calls `adapter.download(videoPath)` and loads a multi-GB file into memory.
+
+### 6. Tests Required
+- Unit test media type detection for supported/unsupported image and video extensions.
+- Unit test range-only behavior when a fake WebDAV response can be injected.
+- Compile/lint checks must cover Media3 API usage because it relies on unstable APIs.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```kotlin
+// Loads the entire remote video into memory.
+val bytes = adapter.download(videoPath)
+```
+
+#### Correct
+```kotlin
+// Reads only the requested chunk for player buffering.
+val bytes = adapter.download(videoPath, start = chunkStart, end = chunkEnd)
+```
+
+---
+
 ## Common Mistakes
 
 ### Mistake 1: Treating All Errors as Fatal

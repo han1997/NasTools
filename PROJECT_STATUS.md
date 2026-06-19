@@ -141,3 +141,9 @@ cd C:\Users\hanhu\Code\NasTools
 **迁移完成时间**: 2026-06-12  
 **项目状态**: ✅ 核心上传闭环可用，进入维稳和扩展阶段
 **下一步**: 扩展测试覆盖 → 真机回归 → 凭据加密迁移 → 下载/预览能力
+
+## Recent Update
+
+- Added online image preview and basic video playback for WebDAV media files.
+- Media viewer supports previous/next switching across supported files in the current remote directory.
+- Video playback uses AndroidX Media3 and range-based WebDAV reads to avoid loading whole videos into memory.

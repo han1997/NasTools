@@ -144,3 +144,9 @@ app/src/main/java/com/nastools/app/
 ## 变更日志
 
 完整迁移历史见 `CHANGELOG.md`。
+
+## Recent Update
+
+- Added NAS image preview and basic video playback from the remote browser.
+- Media files can be opened in-app and switched with previous/next controls within the same directory.
+- Video playback uses AndroidX Media3 with range-based WebDAV reads; native C/C++/Rust is not required for this MVP.
