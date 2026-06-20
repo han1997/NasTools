@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-06-19
+- **Total Sessions**: 10
+- **Last Active**: 2026-06-20
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~312 | Active |
+| `journal-1.md` | ~347 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-06-20 | Code review hardening | `4ea6063`, `aba94fb`, `8dad2c3` | `main` |
 | 9 | 2026-06-19 | NAS media online browsing | `d16158b`, `1ea9544` | `main` |
 | 8 | 2026-06-18 | Upload reliability hardening | `2950fce`, `f067408`, `7fc894f` | `main` |
 | 7 | 2026-06-17 | Wrap-up: archive bootstrap-guidelines task | - | `main` |

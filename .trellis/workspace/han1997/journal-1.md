@@ -310,3 +310,38 @@ Added WebDAV-backed image preview and basic Media3 video playback with previous/
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Code review hardening
+
+**Date**: 2026-06-20
+**Task**: Code review hardening
+**Branch**: `main`
+
+### Summary
+
+Reviewed and hardened media preview, database migration ordering, task scheduling, and documented the database migration contract.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ea6063` | (see git log) |
+| `aba94fb` | (see git log) |
+| `8dad2c3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
