@@ -3,9 +3,11 @@ package com.nastools.app.presentation.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.nastools.app.presentation.browser.BrowserScreen
 import com.nastools.app.presentation.config.ConfigEditScreen
 import com.nastools.app.presentation.home.HomeScreen
@@ -81,14 +83,29 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
                 configId = configId,
                 onBack = { navController.popBackStack() },
                 onOpenMedia = { remotePath ->
-                    navController.navigate("media/$configId?path=${Uri.encode(remotePath)}")
+                    navController.navigate(mediaViewerRoute(configId, remotePath))
                 }
             )
         }
-        composable("media/{configId}?path={path}") {
+        composable(
+            route = MEDIA_VIEWER_ROUTE,
+            arguments = listOf(
+                navArgument("configId") { type = NavType.StringType },
+                navArgument("path") {
+                    type = NavType.StringType
+                    defaultValue = "/"
+                }
+            )
+        ) {
             MediaViewerScreen(
                 onBack = { navController.popBackStack() }
             )
         }
     }
+}
+
+private const val MEDIA_VIEWER_ROUTE = "media/{configId}?path={path}"
+
+private fun mediaViewerRoute(configId: String, remotePath: String): String {
+    return "media/${Uri.encode(configId)}?path=${Uri.encode(remotePath)}"
 }

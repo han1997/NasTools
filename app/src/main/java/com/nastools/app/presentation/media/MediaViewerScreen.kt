@@ -9,11 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.NavigateBefore
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.NavigateBefore
-import androidx.compose.material.icons.filled.NavigateNext
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.Button
@@ -79,7 +79,7 @@ fun MediaViewerScreen(
                 subtitle = uiState.configName,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -107,7 +107,8 @@ fun MediaViewerScreen(
                     current.type == RemoteMediaType.Image -> ImagePreview(uiState)
                     current.type == RemoteMediaType.Video -> VideoPreview(
                         item = current,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        externalRetryNonce = uiState.retryNonce
                     )
                 }
             }
@@ -156,22 +157,23 @@ private fun ImagePreview(uiState: MediaViewerUiState) {
 @Composable
 private fun VideoPreview(
     item: RemoteMediaItem,
-    viewModel: MediaViewerViewModel
+    viewModel: MediaViewerViewModel,
+    externalRetryNonce: Int
 ) {
     val context = LocalContext.current
     val dataSourceFactory = remember(item.path, item.size) {
         viewModel.videoDataSourceFactory(item)
     }
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
-    var playerError by remember(item.path) { mutableStateOf<String?>(null) }
-    var retryNonce by remember(item.path) { mutableStateOf(0) }
+    var playerError by remember(item.path, externalRetryNonce) { mutableStateOf<String?>(null) }
+    var retryNonce by remember(item.path, externalRetryNonce) { mutableStateOf(0) }
 
     if (dataSourceFactory == null) {
         MediaError(message = "Video source unavailable", onRetry = null)
         return
     }
 
-    DisposableEffect(item.path, dataSourceFactory, retryNonce) {
+    DisposableEffect(item.path, dataSourceFactory, externalRetryNonce, retryNonce) {
         val exoPlayer = ExoPlayer.Builder(context).build()
         val listener = object : Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -236,7 +238,7 @@ private fun MediaStepper(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         IconButton(onClick = onPrevious, enabled = hasPrevious) {
-            Icon(Icons.Default.NavigateBefore, "Previous media")
+            Icon(Icons.AutoMirrored.Filled.NavigateBefore, "Previous media")
         }
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -254,7 +256,7 @@ private fun MediaStepper(
             }
         }
         IconButton(onClick = onNext, enabled = hasNext) {
-            Icon(Icons.Default.NavigateNext, "Next media")
+            Icon(Icons.AutoMirrored.Filled.NavigateNext, "Next media")
         }
     }
 }

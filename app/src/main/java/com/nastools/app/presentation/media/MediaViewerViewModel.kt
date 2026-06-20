@@ -1,6 +1,5 @@
 package com.nastools.app.presentation.media
 
-import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,6 +32,7 @@ data class MediaViewerUiState(
     val imageBytes: ByteArray? = null,
     val isLoading: Boolean = false,
     val isImageLoading: Boolean = false,
+    val retryNonce: Int = 0,
     val errorMessage: String? = null
 ) {
     val hasPrevious: Boolean get() = currentIndex > 0
@@ -50,7 +50,7 @@ class MediaViewerViewModel @Inject constructor(
 
     private var config: NasConfigEntity? = null
     private val initialConfigId: String = savedStateHandle.get<String>("configId").orEmpty()
-    private val initialPath: String = Uri.decode(savedStateHandle.get<String>("path").orEmpty())
+    private val initialPath: String = MediaRoutePath.decodeSavedPath(savedStateHandle.get<String>("path").orEmpty())
 
     init {
         load(initialConfigId, initialPath)
@@ -73,6 +73,7 @@ class MediaViewerViewModel @Inject constructor(
         if (current == null) {
             load(initialConfigId, initialPath)
         } else {
+            _uiState.update { it.copy(retryNonce = it.retryNonce + 1) }
             selectPath(current.path)
         }
     }
@@ -117,6 +118,7 @@ class MediaViewerViewModel @Inject constructor(
                         current = fallbackItems[index],
                         imageBytes = null,
                         isLoading = false,
+                        retryNonce = 0,
                         errorMessage = null
                     )
                 }
@@ -170,7 +172,11 @@ class MediaViewerViewModel @Inject constructor(
                     throw IOException("Image is too large for preview")
                 }
                 val bytes = withContext(Dispatchers.IO) {
-                    adapter.download(item.path)
+                    if (knownSize == null) {
+                        adapter.download(item.path, start = 0L, end = MAX_IMAGE_BYTES)
+                    } else {
+                        adapter.download(item.path)
+                    }
                 }
                 if (bytes.size > MAX_IMAGE_BYTES) {
                     throw IOException("Image is too large for preview")

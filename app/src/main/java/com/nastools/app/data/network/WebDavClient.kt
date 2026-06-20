@@ -64,17 +64,26 @@ class WebDavClient(
 
     suspend fun get(path: String, start: Long? = null, end: Long? = null): ByteArray {
         val builder = request(path)
-        if (start != null || end != null) {
+        val isRangeRequest = start != null || end != null
+        if (isRangeRequest) {
             val range = when {
                 start != null && end != null -> "bytes=$start-$end"
                 start != null -> "bytes=$start-"
                 else -> "bytes=0-$end"
             }
             builder.header("Range", range)
+            builder.header("Accept-Encoding", "identity")
         }
 
-        return execute(builder.get().build(), "GET") { response ->
-            if ((start != null || end != null) && response.code != 206) {
+        return execute(
+            request = builder.get().build(),
+            operation = "GET",
+            acceptedCodes = if (isRangeRequest) setOf(416) else emptySet()
+        ) { response ->
+            if (isRangeRequest && response.code == 416) {
+                return@execute ByteArray(0)
+            }
+            if (isRangeRequest && response.code != 206) {
                 throw IOException("Server does not support range reads")
             }
             response.body?.bytes() ?: throw IOException("Empty response")
