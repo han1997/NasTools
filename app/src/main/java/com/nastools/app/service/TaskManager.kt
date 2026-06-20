@@ -27,6 +27,10 @@ class TaskManager @Inject constructor(
             taskDao.reviveInterrupted()
             taskDao.observeByStatus(listOf("waiting")).collect { tasks ->
                 tasks.forEach { task ->
+                    val existingJob = runningJobs[task.id]
+                    if (existingJob != null && !existingJob.isActive) {
+                        runningJobs.remove(task.id, existingJob)
+                    }
                     if (!runningJobs.containsKey(task.id)) {
                         launchTask(task)
                     }
@@ -36,7 +40,7 @@ class TaskManager @Inject constructor(
     }
 
     private fun launchTask(task: TaskEntity) {
-        val job = scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 semaphore.withPermit {
                     executeTask(task)
@@ -51,10 +55,15 @@ class TaskManager @Inject constructor(
                 val latest = taskDao.getById(task.id) ?: task
                 taskDao.updateStatusWithError(task.id, "failed", e.message, latest.retryCount + 1)
             } finally {
-                runningJobs.remove(task.id)
+                runningJobs.remove(task.id, coroutineContext.job)
             }
         }
-        runningJobs[task.id] = job
+        val existingJob = runningJobs.putIfAbsent(task.id, job)
+        if (existingJob == null) {
+            job.start()
+        } else {
+            job.cancel()
+        }
     }
 
     private suspend fun executeTask(task: TaskEntity) {

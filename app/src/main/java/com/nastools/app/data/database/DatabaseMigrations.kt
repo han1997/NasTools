@@ -40,7 +40,7 @@ object DatabaseMigrations {
             SQLiteDatabase.openDatabase(
                 databaseFile.absolutePath,
                 null,
-                SQLiteDatabase.OPEN_READWRITE
+                SQLiteDatabase.OPEN_READONLY
             )
         }.getOrNull() ?: return false
 
