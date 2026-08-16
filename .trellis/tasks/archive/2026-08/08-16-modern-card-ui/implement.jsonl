@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec index - Compose UI guidelines"}
+{"file": ".trellis/spec/frontend/compose-optimization.md", "reason": "Compose performance patterns to preserve during UI refactor"}
+{"file": ".trellis/tasks/08-16-modern-card-ui/prd.md", "reason": "Task requirements - modern card style migration"}
