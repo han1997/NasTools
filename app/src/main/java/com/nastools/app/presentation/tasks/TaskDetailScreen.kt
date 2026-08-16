@@ -129,7 +129,6 @@ private fun TaskDetailContent(
                     .nasAnimateContentSize(motionEnabled),
                 shape = NasCardShape,
                 colors = nasCardColors(),
-                border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -168,7 +167,6 @@ private fun TaskDetailContent(
                         .nasAnimateContentSize(motionEnabled),
                     shape = NasCardShape,
                     colors = nasCardColors(),
-                    border = nasCardBorder(),
                     elevation = nasCardElevation()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -257,7 +255,6 @@ private fun TaskDetailContent(
                     .nasAnimateContentSize(motionEnabled),
                 shape = NasCardShape,
                 colors = nasCardColors(),
-                border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {

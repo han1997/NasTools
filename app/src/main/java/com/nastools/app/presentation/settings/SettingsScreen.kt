@@ -15,7 +15,6 @@ import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasStatusBadge
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -53,7 +52,6 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             Card(
                 shape = NasCardShape,
                 colors = nasCardColors(),
-                border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -96,7 +94,6 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             Card(
                 shape = NasCardShape,
                 colors = nasCardColors(),
-                border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {

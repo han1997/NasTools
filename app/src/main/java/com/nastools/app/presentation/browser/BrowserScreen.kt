@@ -74,7 +74,6 @@ import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -497,7 +496,6 @@ private fun EntryRow(
         modifier = modifier,
         shape = NasCardShape,
         colors = nasCardColors(),
-        border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         ListItem(
@@ -544,7 +542,6 @@ private fun EntryGridCard(
         modifier = modifier.aspectRatio(1f),
         shape = NasCardShape,
         colors = nasCardColors(),
-        border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Column(

@@ -53,7 +53,6 @@ import com.nastools.app.presentation.components.NasMiniFab
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -169,7 +168,6 @@ private fun PresetCard(
         modifier = modifier.nasAnimateContentSize(motionEnabled),
         shape = NasCardShape,
         colors = nasCardColors(),
-        border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         ListItem(

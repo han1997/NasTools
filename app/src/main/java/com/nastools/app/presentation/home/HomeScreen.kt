@@ -31,7 +31,6 @@ import com.nastools.app.presentation.components.NasMiniFab
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -128,7 +127,6 @@ private fun ActiveTaskBanner(count: Int, onClick: () -> Unit) {
         shape = NasCardShape,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        border = nasCardBorder(),
         shadowElevation = 1.dp
     ) {
         Row(
@@ -234,7 +232,6 @@ private fun ConfigCard(
         modifier = modifier,
         shape = NasCardShape,
         colors = nasCardColors(),
-        border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Row(
@@ -307,7 +304,6 @@ private fun SkeletonCard() {
         modifier = Modifier.fillMaxWidth(),
         shape = NasCardShape,
         colors = nasCardColors(),
-        border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Row(

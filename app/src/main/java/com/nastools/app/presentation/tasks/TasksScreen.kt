@@ -30,7 +30,6 @@ import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasStatusBadge
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.nasMotionSpec
@@ -293,7 +292,7 @@ private fun TaskCard(
         border = if (isSelected) {
             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
-            nasCardBorder()
+            null
         },
         elevation = nasCardElevation(),
         onClick = onClick

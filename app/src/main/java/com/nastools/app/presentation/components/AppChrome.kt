@@ -2,7 +2,6 @@ package com.nastools.app.presentation.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
@@ -43,13 +41,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-val NasCardShape = RoundedCornerShape(8.dp)
+val NasCardShape = RoundedCornerShape(16.dp)
+val NasSmallShape = RoundedCornerShape(12.dp)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,21 +59,10 @@ fun NasScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val background = MaterialTheme.colorScheme.background
-    val surface = MaterialTheme.colorScheme.surface
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        surface.copy(alpha = 0.98f),
-                        background,
-                        surfaceVariant.copy(alpha = 0.58f),
-                        background
-                    )
-                )
-            )
+            .background(background)
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -100,19 +87,9 @@ fun NasTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val surface = MaterialTheme.colorScheme.surface
+    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
     Column(
-        modifier = Modifier
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        surface.copy(alpha = 0.96f),
-                        surface.copy(alpha = 0.86f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.70f)
-                    )
-                )
-            )
+        modifier = Modifier.background(Color.Transparent)
     ) {
         TopAppBar(
             title = {
@@ -143,7 +120,7 @@ fun NasTopAppBar(
                 actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
-        HorizontalDivider(color = primary.copy(alpha = 0.18f))
+        HorizontalDivider(color = outlineVariant)
     }
 }
 
@@ -164,11 +141,9 @@ fun NasEmptyState(
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                shape = CircleShape,
+                shape = NasSmallShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
-                shadowElevation = 6.dp
+                contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
                     icon,
@@ -199,7 +174,7 @@ fun NasEmptyState(
 @Composable
 fun nasCardColors(): CardColors {
     return CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     )
 }
@@ -207,25 +182,10 @@ fun nasCardColors(): CardColors {
 @Composable
 fun nasCardElevation(): CardElevation {
     return CardDefaults.cardElevation(
-        defaultElevation = 4.dp,
-        pressedElevation = 8.dp,
-        focusedElevation = 6.dp,
-        hoveredElevation = 6.dp
-    )
-}
-
-@Composable
-fun nasCardBorder(): BorderStroke {
-    return BorderStroke(
-        1.dp,
-        Brush.linearGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
-            )
-        )
+        defaultElevation = 2.dp,
+        pressedElevation = 4.dp,
+        focusedElevation = 3.dp,
+        hoveredElevation = 3.dp
     )
 }
 
@@ -236,35 +196,19 @@ fun NasIconContainer(
     modifier: Modifier = Modifier,
     selected: Boolean = false
 ) {
-    val motionEnabled = rememberNasMotionEnabled()
-    val shadowElevation by animateDpAsState(
-        targetValue = if (selected) 8.dp else 2.dp,
-        animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
-        label = "iconContainerElevation"
-    )
-
     Surface(
         modifier = modifier,
-        shape = CircleShape,
+        shape = NasSmallShape,
         color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)
+            MaterialTheme.colorScheme.primaryContainer
         } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+            MaterialTheme.colorScheme.surfaceVariant
         },
         contentColor = if (selected) {
             MaterialTheme.colorScheme.primary
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        border = BorderStroke(
-            1.dp,
-            if (selected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.64f)
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.11f)
-            }
-        ),
-        shadowElevation = shadowElevation
+        }
     ) {
         Icon(
             icon,
@@ -294,11 +238,9 @@ fun NasStatusBadge(
 
     Surface(
         modifier = modifier.nasAnimateContentSize(motionEnabled),
-        shape = CircleShape,
-        color = container.copy(alpha = 0.76f),
-        contentColor = content,
-        border = BorderStroke(1.dp, content.copy(alpha = 0.16f)),
-        shadowElevation = 4.dp
+        shape = RoundedCornerShape(8.dp),
+        color = container,
+        contentColor = content
     ) {
         Text(
             text,
@@ -332,7 +274,7 @@ fun NasMiniFab(
         },
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,
-        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp, pressedElevation = 12.dp),
+        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
         interactionSource = interactionSource
     ) {
         Icon(icon, contentDescription)
