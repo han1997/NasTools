@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
-- **Last Active**: 2026-06-18
+- **Total Sessions**: 9
+- **Last Active**: 2026-10-01
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~278 | Active |
+| `journal-1.md` | ~311 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-10-01 | Design token migration & task status color fix | `513fe41` | `main` |
 | 8 | 2026-06-18 | Upload reliability hardening | `2950fce`, `f067408`, `7fc894f` | `main` |
 | 7 | 2026-06-17 | Wrap-up: archive bootstrap-guidelines task | - | `main` |
 | 6 | 2026-06-17 | Comprehensive performance optimization (4 phases) | `d77050e`, `539afd8`, `e40a5af`, `9d4d024`, `38f6afa`, `b4a0414` | `main` |

@@ -276,3 +276,36 @@ Hardened upload progress/error handling, added safer destructive-action confirma
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Design token migration & task status color fix
+
+**Date**: 2026-10-01
+**Task**: Design token migration & task status color fix
+**Branch**: `main`
+
+### Summary
+
+把零消费的设计 token 接入 9 个页面；修复 waiting/paused/completed 三态同绿的缺陷（NasStatusBadge 的 positive:Boolean 改为五档 NasStatusTone）；深色模式由死代码变为跟随系统；新增 14 个 @Preview 与 TaskStatusUiTest；CHANGELOG 归档 Flutter 遗留段并从 0.2.0 起记；新增 release 签名配置与版本号追加规则
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `513fe41` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
