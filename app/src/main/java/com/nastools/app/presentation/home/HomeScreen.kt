@@ -19,11 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.NasConfigEntity
-import com.nastools.app.presentation.components.NasCardShape
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
@@ -35,6 +35,11 @@ import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasElevation
+import com.nastools.app.presentation.theme.NasListPaddingWithFab
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,17 +127,17 @@ private fun ActiveTaskBanner(count: Int, onClick: () -> Unit) {
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = NasSpacing.lg, vertical = NasSpacing.md)
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = NasCardShape,
+        shape = NasShape.Card,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         border = nasCardBorder(),
-        shadowElevation = 1.dp
+        shadowElevation = NasElevation.raised
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = NasSpacing.md, vertical = NasSpacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             NasIconContainer(
@@ -144,7 +149,7 @@ private fun ActiveTaskBanner(count: Int, onClick: () -> Unit) {
                 },
                 selected = true
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(NasSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text("上传进行中", style = MaterialTheme.typography.titleSmall)
                 Text(
@@ -177,7 +182,7 @@ private fun ConfigList(
             action = {
                 Button(onClick = onCreateClick) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(NasSpacing.sm))
                     Text("新建连接")
                 }
             }
@@ -185,8 +190,8 @@ private fun ConfigList(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = NasListPaddingWithFab,
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
         ) {
             item {
                 SectionHeader(
@@ -209,7 +214,7 @@ private fun ConfigList(
 @Composable
 private fun SectionHeader(title: String, detail: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = NasSpacing.xs, bottom = NasSpacing.xxs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, style = MaterialTheme.typography.titleSmall)
@@ -232,20 +237,20 @@ private fun ConfigCard(
     Card(
         onClick = onClick,
         modifier = modifier,
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(NasSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             NasIconContainer(Icons.Default.Storage, null, selected = true)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(NasSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(config.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(NasSpacing.xxs))
                 Text(
                     config.baseUrl,
                     style = MaterialTheme.typography.bodySmall,
@@ -254,7 +259,7 @@ private fun ConfigCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 if (!config.defaultRemotePath.isNullOrBlank() && config.defaultRemotePath != "/") {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(NasSpacing.xxs))
                     Text(
                         "默认目录 ${config.defaultRemotePath}",
                         style = MaterialTheme.typography.labelSmall,
@@ -275,8 +280,8 @@ private fun ConfigCard(
 private fun LoadingSkeleton(modifier: Modifier = Modifier) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = NasListPaddingWithFab,
+        verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
     ) {
         item {
             SectionHeader(
@@ -305,13 +310,13 @@ private fun SkeletonCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(NasSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Icon placeholder
@@ -320,7 +325,7 @@ private fun SkeletonCard() {
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {}
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(NasSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 // Title placeholder
                 Surface(
@@ -328,7 +333,7 @@ private fun SkeletonCard() {
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {}
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(NasSpacing.sm))
                 // URL placeholder
                 Surface(
                     modifier = Modifier.fillMaxWidth(0.8f).height(14.dp).graphicsLayer { this.alpha = alpha * 0.8f },
@@ -340,3 +345,42 @@ private fun SkeletonCard() {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// @Preview：渲染无状态的 ActiveTaskBanner / ConfigCard，不依赖 ViewModel（AC15）。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "主页 · 浅色", showBackground = true)
+@Composable
+private fun HomeScreenLightPreview() {
+    NasToolsTheme(darkTheme = false) { HomePreviewContent() }
+}
+
+@Preview(name = "主页 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun HomeScreenDarkPreview() {
+    NasToolsTheme(darkTheme = true) { HomePreviewContent() }
+}
+
+@Composable
+private fun HomePreviewContent() {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
+        ) {
+            ActiveTaskBanner(count = 2, onClick = {})
+            ConfigCard(config = previewConfig(), onClick = {}, onManageClick = {})
+        }
+    }
+}
+
+private fun previewConfig() = NasConfigEntity(
+    id = "preview",
+    name = "家庭 NAS",
+    type = "webdav",
+    baseUrl = "https://nas.example.com/dav",
+    username = "user",
+    password = "secret",
+    defaultRemotePath = "/photos"
+)

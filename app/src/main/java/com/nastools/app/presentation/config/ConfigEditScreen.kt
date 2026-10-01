@@ -39,13 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,9 +114,9 @@ fun ConfigEditScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(NasSpacing.lg)
                 .nasAnimateContentSize(motionEnabled),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
         ) {
             if (uiState.isLoading || uiState.isSaving || uiState.isTesting) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -205,7 +205,7 @@ fun ConfigEditScreen(
                 Text(it, color = MaterialTheme.colorScheme.primary)
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(NasSpacing.xs))
 
             Button(
                 onClick = viewModel::testConnection,

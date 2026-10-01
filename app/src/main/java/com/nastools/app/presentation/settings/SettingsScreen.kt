@@ -9,8 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import com.nastools.app.presentation.components.NasCardShape
+import androidx.compose.ui.tooling.preview.Preview
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasStatusBadge
 import com.nastools.app.presentation.components.NasTopAppBar
@@ -19,6 +18,10 @@ import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasStatusTone
+import com.nastools.app.presentation.theme.NasToolsTheme
 import com.nastools.app.util.PermissionHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,26 +48,26 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(NasSpacing.lg)
                 .nasAnimateContentSize(motionEnabled),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.lg)
         ) {
             // 系统权限卡片
             Card(
-                shape = NasCardShape,
+                shape = NasShape.Card,
                 colors = nasCardColors(),
                 border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(NasSpacing.lg)) {
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(NasSpacing.sm))
                         Text("系统权限", style = MaterialTheme.typography.titleMedium)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(NasSpacing.md))
                     HorizontalDivider()
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(NasSpacing.sm))
 
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
@@ -73,11 +76,14 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                         leadingContent = { Icon(Icons.Default.Notifications, null) },
                         trailingContent = {
                             val hasPermission = PermissionHelper.hasNotificationPermission(context)
-                            NasStatusBadge(text = if (hasPermission) "已授权" else "未授权", positive = hasPermission)
+                            NasStatusBadge(
+                                text = if (hasPermission) "已授权" else "未授权",
+                                tone = if (hasPermission) NasStatusTone.Success else NasStatusTone.Danger
+                            )
                         }
                     )
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(NasSpacing.xs))
 
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
@@ -86,7 +92,10 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                         leadingContent = { Icon(Icons.Default.BatterySaver, null) },
                         trailingContent = {
                             val isIgnoring = PermissionHelper.isIgnoringBatteryOptimization(context)
-                            NasStatusBadge(text = if (isIgnoring) "已忽略" else "优化中", positive = isIgnoring)
+                            NasStatusBadge(
+                                text = if (isIgnoring) "已忽略" else "优化中",
+                                tone = if (isIgnoring) NasStatusTone.Success else NasStatusTone.Danger
+                            )
                         }
                     )
                 }
@@ -94,20 +103,20 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
 
             // 关于卡片
             Card(
-                shape = NasCardShape,
+                shape = NasShape.Card,
                 colors = nasCardColors(),
                 border = nasCardBorder(),
                 elevation = nasCardElevation()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(NasSpacing.lg)) {
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(NasSpacing.sm))
                         Text("关于", style = MaterialTheme.typography.titleMedium)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(NasSpacing.md))
                     HorizontalDivider()
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(NasSpacing.sm))
 
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
@@ -118,4 +127,20 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// @Preview：SettingsScreen 无 ViewModel 依赖，直接渲染（AC15）。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "设置 · 浅色", showBackground = true)
+@Composable
+private fun SettingsScreenLightPreview() {
+    NasToolsTheme(darkTheme = false) { SettingsScreen() }
+}
+
+@Preview(name = "设置 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun SettingsScreenDarkPreview() {
+    NasToolsTheme(darkTheme = true) { SettingsScreen() }
 }

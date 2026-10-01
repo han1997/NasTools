@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,12 +64,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.network.RemoteEntry
 import com.nastools.app.domain.model.UploadPresetOptions
-import com.nastools.app.presentation.components.NasCardShape
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasScaffold
@@ -78,6 +79,9 @@ import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 import com.nastools.app.util.BytesFormat
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -298,9 +302,14 @@ fun BrowserScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(132.dp),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(
+                            start = NasSpacing.md,
+                            top = NasSpacing.md,
+                            end = NasSpacing.md,
+                            bottom = NasSpacing.xl
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(NasSpacing.md),
+                        horizontalArrangement = Arrangement.spacedBy(NasSpacing.md)
                     ) {
                         items(uiState.entries, key = { it.path }) { entry ->
                             EntryGridCard(
@@ -316,8 +325,13 @@ fun BrowserScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(
+                            start = NasSpacing.md,
+                            top = NasSpacing.md,
+                            end = NasSpacing.md,
+                            bottom = NasSpacing.xl
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
                     ) {
                         items(uiState.entries, key = { it.path }) { entry ->
                             EntryRow(
@@ -353,7 +367,7 @@ private fun UploadOptionsDialog(
         text = {
             Column(
                 modifier = Modifier.nasAnimateContentSize(motionEnabled),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
             ) {
                 Text(
                     draft.label,
@@ -485,7 +499,7 @@ private fun EntryRow(
     Card(
         onClick = onOpen,
         modifier = modifier,
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = nasCardBorder(),
         elevation = nasCardElevation()
@@ -532,13 +546,13 @@ private fun EntryGridCard(
     Card(
         onClick = onOpen,
         modifier = modifier.aspectRatio(1f),
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = nasCardBorder(),
         elevation = nasCardElevation()
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
+            modifier = Modifier.fillMaxSize().padding(NasSpacing.md),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.Top) {
@@ -626,3 +640,45 @@ private val folderConflictOptions = listOf(
     "skip" to "跳过",
     "fail" to "报错停止"
 )
+
+// ---------------------------------------------------------------------------
+// @Preview：渲染无状态的 EntryRow，不依赖 ViewModel（AC15）。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "文件浏览 · 浅色", showBackground = true)
+@Composable
+private fun BrowserScreenLightPreview() {
+    NasToolsTheme(darkTheme = false) { BrowserPreviewContent() }
+}
+
+@Preview(name = "文件浏览 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun BrowserScreenDarkPreview() {
+    NasToolsTheme(darkTheme = true) { BrowserPreviewContent() }
+}
+
+@Composable
+private fun BrowserPreviewContent() {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
+        ) {
+            EntryRow(
+                entry = RemoteEntry(path = "/photos", name = "照片", isDirectory = true),
+                onOpen = {},
+                onDelete = {}
+            )
+            EntryRow(
+                entry = RemoteEntry(
+                    path = "/photos/IMG_0001.jpg",
+                    name = "IMG_0001.jpg",
+                    isDirectory = false,
+                    size = 1024L * 512
+                ),
+                onOpen = {},
+                onDelete = {}
+            )
+        }
+    }
+}

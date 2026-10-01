@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CardElevation
@@ -48,8 +47,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-
-val NasCardShape = RoundedCornerShape(8.dp)
+import com.nastools.app.presentation.theme.NasElevation
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasStatusTone
+import com.nastools.app.presentation.theme.nasStatusColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -159,7 +161,7 @@ fun NasEmptyState(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = NasSpacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -168,7 +170,7 @@ fun NasEmptyState(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.primary,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)),
-                shadowElevation = 6.dp
+                shadowElevation = NasElevation.overlay
             ) {
                 Icon(
                     icon,
@@ -178,10 +180,10 @@ fun NasEmptyState(
                         .size(34.dp)
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(NasSpacing.lg))
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (!message.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(NasSpacing.sm))
                 Text(
                     message,
                     style = MaterialTheme.typography.bodyMedium,
@@ -189,7 +191,7 @@ fun NasEmptyState(
                 )
             }
             if (action != null) {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(NasSpacing.lg))
                 action()
             }
         }
@@ -207,10 +209,10 @@ fun nasCardColors(): CardColors {
 @Composable
 fun nasCardElevation(): CardElevation {
     return CardDefaults.cardElevation(
-        defaultElevation = 4.dp,
-        pressedElevation = 8.dp,
-        focusedElevation = 6.dp,
-        hoveredElevation = 6.dp
+        defaultElevation = NasElevation.flat,
+        pressedElevation = NasElevation.overlay,
+        focusedElevation = NasElevation.raised,
+        hoveredElevation = NasElevation.raised
     )
 }
 
@@ -238,7 +240,7 @@ fun NasIconContainer(
 ) {
     val motionEnabled = rememberNasMotionEnabled()
     val shadowElevation by animateDpAsState(
-        targetValue = if (selected) 8.dp else 2.dp,
+        targetValue = if (selected) NasElevation.floating else NasElevation.resting,
         animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
         label = "iconContainerElevation"
     )
@@ -277,32 +279,23 @@ fun NasIconContainer(
 @Composable
 fun NasStatusBadge(
     text: String,
-    positive: Boolean,
+    tone: NasStatusTone,
     modifier: Modifier = Modifier
 ) {
-    val container = if (positive) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.errorContainer
-    }
-    val content = if (positive) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onErrorContainer
-    }
+    val colors = nasStatusColors(tone)
     val motionEnabled = rememberNasMotionEnabled()
 
     Surface(
         modifier = modifier.nasAnimateContentSize(motionEnabled),
-        shape = CircleShape,
-        color = container.copy(alpha = 0.76f),
-        contentColor = content,
-        border = BorderStroke(1.dp, content.copy(alpha = 0.16f)),
-        shadowElevation = 4.dp
+        shape = NasShape.Badge,
+        color = colors.container.copy(alpha = 0.76f),
+        contentColor = colors.content,
+        border = BorderStroke(1.dp, colors.content.copy(alpha = 0.16f)),
+        shadowElevation = NasElevation.flat
     ) {
         Text(
             text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = NasSpacing.sm, vertical = NasSpacing.xs),
             style = MaterialTheme.typography.labelMedium
         )
     }
@@ -332,7 +325,10 @@ fun NasMiniFab(
         },
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,
-        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp, pressedElevation = 12.dp),
+        elevation = FloatingActionButtonDefaults.elevation(
+            defaultElevation = NasElevation.floating,
+            pressedElevation = NasElevation.lifted
+        ),
         interactionSource = interactionSource
     ) {
         Icon(icon, contentDescription)

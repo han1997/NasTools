@@ -18,11 +18,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.TaskEntity
-import com.nastools.app.presentation.components.NasCardShape
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
@@ -35,6 +35,10 @@ import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.nasMotionSpec
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasListPadding
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -231,8 +235,8 @@ private fun TaskList(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            contentPadding = NasListPadding,
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
         ) {
             items(tasks, key = { it.id }) { task ->
                 TaskCard(
@@ -288,7 +292,7 @@ private fun TaskCard(
     Card(
         modifier = modifier
             .nasAnimateContentSize(motionEnabled),
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = if (isSelected) {
             BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -299,14 +303,14 @@ private fun TaskCard(
         onClick = onClick
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(NasSpacing.md),
             verticalAlignment = Alignment.Top
         ) {
             if (isSelectionMode) {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = null, // Let card onClick handle the toggle
-                    modifier = Modifier.padding(end = 8.dp)
+                    modifier = Modifier.padding(end = NasSpacing.sm)
                 )
             }
             NasIconContainer(
@@ -318,7 +322,7 @@ private fun TaskCard(
                 },
                 selected = task.status == "running" || task.status == "completed"
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(NasSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -329,10 +333,10 @@ private fun TaskCard(
                     )
                     NasStatusBadge(
                         text = task.status.statusLabel(),
-                        positive = task.status !in setOf("failed", "cancelled")
+                        tone = task.status.statusTone()
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(NasSpacing.sm))
                 val animatedProgress by animateFloatAsState(
                     targetValue = progress,
                     animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
@@ -343,7 +347,7 @@ private fun TaskCard(
                     modifier = Modifier.fillMaxWidth().height(5.dp),
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(NasSpacing.sm))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "${progressMB}MB / ${totalMB}MB",
@@ -359,7 +363,7 @@ private fun TaskCard(
                     )
                 }
                 if (task.errorMessage != null) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(NasSpacing.xs))
                     Text(task.errorMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -398,14 +402,55 @@ private fun TaskEntity.progressFraction(): Float {
     return (progressBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
 }
 
-private fun String.statusLabel(): String {
-    return when (this) {
-        "waiting" -> "等待"
-        "running" -> "运行中"
-        "paused" -> "已暂停"
-        "completed" -> "完成"
-        "failed" -> "失败"
-        "cancelled" -> "已取消"
-        else -> this
+// ---------------------------------------------------------------------------
+// @Preview：明/暗两套用于目视终验（prd.md R7 / AC15）。
+// 渲染无状态的 TaskCard，不依赖 ViewModel。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "任务列表 · 浅色", showBackground = true)
+@Composable
+private fun TasksScreenLightPreview() {
+    NasToolsTheme(darkTheme = false) { TasksPreviewContent() }
+}
+
+@Preview(name = "任务列表 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun TasksScreenDarkPreview() {
+    NasToolsTheme(darkTheme = true) { TasksPreviewContent() }
+}
+
+@Composable
+private fun TasksPreviewContent() {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
+        ) {
+            TaskCard(
+                task = previewTask("paused"),
+                isSelectionMode = false,
+                isSelected = false,
+                onClick = {},
+                onAction = {}
+            )
+            TaskCard(
+                task = previewTask("completed"),
+                isSelectionMode = false,
+                isSelected = false,
+                onClick = {},
+                onAction = {}
+            )
+        }
     }
 }
+
+private fun previewTask(status: String) = TaskEntity(
+    id = "preview-$status",
+    moduleId = "preview",
+    type = "upload",
+    status = status,
+    progressBytes = 512L * 1024 * 1024,
+    totalBytes = 1024L * 1024 * 1024,
+    title = "示例上传任务",
+    payloadJson = "{}"
+)

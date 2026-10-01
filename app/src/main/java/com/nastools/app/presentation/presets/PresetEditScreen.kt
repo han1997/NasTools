@@ -42,13 +42,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,9 +93,9 @@ fun PresetEditScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(NasSpacing.lg)
                 .nasAnimateContentSize(motionEnabled),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
         ) {
             if (uiState.isLoading || uiState.isSaving) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -136,7 +136,7 @@ fun PresetEditScreen(
                     if (uiState.sourceType == "folder") Icons.Default.FolderOpen else Icons.Default.InsertDriveFile,
                     null
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(NasSpacing.sm))
                 Text(
                     uiState.localLabel.ifBlank {
                         if (uiState.sourceType == "folder") "选择本地文件夹" else "选择本地文件"

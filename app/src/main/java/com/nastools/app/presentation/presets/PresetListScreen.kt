@@ -4,7 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,6 +30,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,11 +42,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.UploadPresetEntity
-import com.nastools.app.presentation.components.NasCardShape
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMiniFab
@@ -57,6 +56,10 @@ import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
+import com.nastools.app.presentation.theme.NasListPaddingWithFab
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -134,8 +137,8 @@ fun PresetListScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = NasListPaddingWithFab,
+                verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
             ) {
                 items(uiState.presets, key = { it.id }) { preset ->
                     PresetCard(
@@ -167,7 +170,7 @@ private fun PresetCard(
     Card(
         onClick = onEdit,
         modifier = modifier.nasAnimateContentSize(motionEnabled),
-        shape = NasCardShape,
+        shape = NasShape.Card,
         colors = nasCardColors(),
         border = nasCardBorder(),
         elevation = nasCardElevation()
@@ -221,5 +224,47 @@ private fun PresetCard(
                 }
             }
         )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// @Preview：渲染无状态的 PresetCard，不依赖 ViewModel（AC15）。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "上传预设 · 浅色", showBackground = true)
+@Composable
+private fun PresetListLightPreview() {
+    NasToolsTheme(darkTheme = false) { PresetPreviewContent() }
+}
+
+@Preview(name = "上传预设 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun PresetListDarkPreview() {
+    NasToolsTheme(darkTheme = true) { PresetPreviewContent() }
+}
+
+@Composable
+private fun PresetPreviewContent() {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
+        ) {
+            PresetCard(
+                preset = UploadPresetEntity(
+                    id = "preview",
+                    nasConfigId = "preview",
+                    name = "照片备份",
+                    localUri = "content://preview",
+                    localLabel = "相册",
+                    remoteRoot = "/backup/photos",
+                    optionsJson = "{}"
+                ),
+                configName = "家庭 NAS",
+                onRun = {},
+                onEdit = {},
+                onDelete = {}
+            )
+        }
     }
 }
