@@ -32,9 +32,14 @@ data class BrowserUiState(
     val entries: List<RemoteEntry> = emptyList(),
     val isLoading: Boolean = false,
     val isGrid: Boolean = false,
+    val pageErrorMessage: String? = null,
     val errorMessage: String? = null,
     val message: String? = null
 )
+
+internal fun BrowserUiState.shouldShowBlockingError(): Boolean {
+    return !pageErrorMessage.isNullOrBlank() && entries.isEmpty()
+}
 
 @HiltViewModel
 class BrowserViewModel @Inject constructor(
@@ -53,13 +58,23 @@ class BrowserViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update {
-                it.copy(configId = configId, isLoading = true, errorMessage = null, message = null)
+                it.copy(
+                    configId = configId,
+                    entries = emptyList(),
+                    isLoading = true,
+                    pageErrorMessage = null,
+                    errorMessage = null,
+                    message = null
+                )
             }
 
             val loaded = configRepository.getById(configId)
             if (loaded == null) {
                 _uiState.update {
-                    it.copy(isLoading = false, errorMessage = "连接配置不存在")
+                    it.copy(
+                        isLoading = false,
+                        pageErrorMessage = "连接配置不存在"
+                    )
                 }
                 return@launch
             }
@@ -105,6 +120,7 @@ class BrowserViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        pageErrorMessage = null,
                         entries = adapter.list(currentPath),
                         message = "文件夹已创建"
                     )
@@ -122,6 +138,7 @@ class BrowserViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        pageErrorMessage = null,
                         entries = adapter.list(currentPath),
                         message = "已删除 ${entry.name}"
                     )
@@ -230,13 +247,51 @@ class BrowserViewModel @Inject constructor(
 
     private fun loadPath(path: String) {
         viewModelScope.launch {
-            runWithAdapter { adapter ->
-                val normalized = RemotePath.normalize(path)
+            val normalized = RemotePath.normalize(path)
+            val previous = _uiState.value
+            val preserveEntries = previous.path == normalized && previous.entries.isNotEmpty()
+            _uiState.update {
+                it.copy(
+                    path = normalized,
+                    entries = if (preserveEntries) it.entries else emptyList(),
+                    isLoading = true,
+                    pageErrorMessage = null,
+                    errorMessage = null,
+                    message = null
+                )
+            }
+
+            val currentConfig = config
+            if (currentConfig == null) {
                 _uiState.update {
-                    it.copy(path = normalized, isLoading = true, errorMessage = null, message = null)
+                    it.copy(isLoading = false, pageErrorMessage = "连接配置未加载")
                 }
+                return@launch
+            }
+
+            runCatching {
+                adapterFactory.create(currentConfig).list(normalized)
+            }.onSuccess { entries ->
                 _uiState.update {
-                    it.copy(path = normalized, entries = adapter.list(normalized), isLoading = false)
+                    it.copy(
+                        entries = entries,
+                        isLoading = false,
+                        pageErrorMessage = null
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        pageErrorMessage = if (preserveEntries) null else {
+                            error.message ?: "加载目录失败"
+                        },
+                        errorMessage = if (preserveEntries) {
+                            error.message ?: "刷新目录失败"
+                        } else {
+                            null
+                        }
+                    )
                 }
             }
         }

@@ -26,6 +26,7 @@ data class ConfigEditUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isTesting: Boolean = false,
+    val loadErrorMessage: String? = null,
     val errorMessage: String? = null,
     val testMessage: String? = null
 )
@@ -52,12 +53,17 @@ class ConfigEditViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            val config = repository.getById(configId)
+            _uiState.update { it.copy(isLoading = true, loadErrorMessage = null, errorMessage = null) }
+            val configResult = runCatching { repository.getById(configId) }
+            val config = configResult.getOrNull()
             originalConfig = config
             if (config == null) {
                 _uiState.update {
-                    it.copy(isLoading = false, errorMessage = "连接配置不存在")
+                    it.copy(
+                        isLoading = false,
+                        loadErrorMessage = configResult.exceptionOrNull()?.message
+                            ?: "连接配置不存在"
+                    )
                 }
                 return@launch
             }
@@ -73,6 +79,12 @@ class ConfigEditViewModel @Inject constructor(
                 isLoading = false
             )
         }
+    }
+
+    fun retryLoad() {
+        val configId = loadedConfigId
+        loadedConfigId = null
+        load(configId)
     }
 
     fun updateName(value: String) = update { copy(name = value, errorMessage = null) }
@@ -99,6 +111,7 @@ class ConfigEditViewModel @Inject constructor(
                     isTesting = false,
                     testMessage = if (result.isSuccess) "连接测试成功" else null,
                     errorMessage = result.exceptionOrNull()?.message
+                        ?: if (result.isFailure) "连接测试失败" else null
                 )
             }
         }
@@ -135,6 +148,10 @@ class ConfigEditViewModel @Inject constructor(
                     _uiState.update { it.copy(errorMessage = error.message ?: "删除失败") }
                 }
         }
+    }
+
+    fun clearTransientMessage() {
+        _uiState.update { it.copy(errorMessage = null, testMessage = null) }
     }
 
     private fun validate(): String? {

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
@@ -71,7 +72,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.network.RemoteEntry
 import com.nastools.app.domain.model.UploadPresetOptions
 import com.nastools.app.presentation.components.NasEmptyState
+import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasIconContainer
+import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
@@ -181,26 +184,16 @@ fun BrowserScreen(
     }
 
     entryPendingDelete?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { entryPendingDelete = null },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("删除${if (entry.isDirectory) "文件夹" else "文件"}") },
-            text = { Text("确定要删除 ${entry.name} 吗？此操作会直接删除 NAS 上的远端项目，无法撤销。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.delete(entry)
-                        entryPendingDelete = null
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "删除${if (entry.isDirectory) "文件夹" else "文件"}",
+            message = "确定要删除 ${entry.name} 吗？此操作会直接删除 NAS 上的远端项目，无法撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.delete(entry)
+                entryPendingDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { entryPendingDelete = null }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { entryPendingDelete = null },
+            icon = Icons.Default.Delete
         )
     }
 
@@ -283,6 +276,16 @@ fun BrowserScreen(
             }
 
             when {
+                uiState.shouldShowBlockingError() -> {
+                    NasErrorState(
+                        title = "加载目录失败",
+                        message = uiState.pageErrorMessage ?: "无法加载目录",
+                        onRetry = viewModel::refresh,
+                        modifier = Modifier.fillMaxSize(),
+                        icon = Icons.Default.Error
+                    )
+                }
+
                 uiState.isLoading && uiState.entries.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()

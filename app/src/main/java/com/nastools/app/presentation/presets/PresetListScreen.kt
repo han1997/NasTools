@@ -22,7 +22,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -32,7 +31,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.UploadPresetEntity
+import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMiniFab
@@ -83,26 +82,16 @@ fun PresetListScreen(
     }
 
     presetPendingDelete?.let { preset ->
-        AlertDialog(
-            onDismissRequest = { presetPendingDelete = null },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("删除预设") },
-            text = { Text("确定要删除预设 ${preset.name} 吗？此操作无法撤销，不会删除已创建的上传任务。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deletePreset(preset.id)
-                        presetPendingDelete = null
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "删除预设",
+            message = "确定要删除预设 ${preset.name} 吗？此操作无法撤销，不会删除已创建的上传任务。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deletePreset(preset.id)
+                presetPendingDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { presetPendingDelete = null }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { presetPendingDelete = null },
+            icon = Icons.Default.Delete
         )
     }
 

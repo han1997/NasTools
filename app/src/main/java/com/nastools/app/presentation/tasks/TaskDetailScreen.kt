@@ -30,10 +30,21 @@ fun TaskDetailScreen(
     onDeleted: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val feedback by viewModel.feedback.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val motionEnabled = rememberNasMotionEnabled()
 
+    LaunchedEffect(feedback.errorMessage ?: feedback.message) {
+        val message = feedback.errorMessage ?: feedback.message
+        if (!message.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearFeedback()
+        }
+    }
+
     NasScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             NasTopAppBar(
                 title = "任务详情",
@@ -61,10 +72,11 @@ fun TaskDetailScreen(
                 }
             }
             is TaskDetailUiState.Error -> {
-                NasEmptyState(
+                NasErrorState(
                     icon = Icons.Default.Error,
                     title = "加载失败",
                     message = state.message,
+                    onRetry = viewModel::reload,
                     modifier = Modifier.padding(padding)
                 )
             }
@@ -76,7 +88,7 @@ fun TaskDetailScreen(
                     sourceDeleted = state.sourceDeleted,
                     motionEnabled = motionEnabled,
                     onDelete = { showDeleteDialog = true },
-                    onRetry = { viewModel.retryTask(); onBack() },
+                    onRetry = { viewModel.retryTask(onRetried = onBack) },
                     modifier = Modifier.padding(padding)
                 )
             }
@@ -84,27 +96,16 @@ fun TaskDetailScreen(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("删除任务") },
-            text = { Text("确定要删除这个任务吗？此操作无法撤销。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteTask()
-                        showDeleteDialog = false
-                        onDeleted()
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "删除任务",
+            message = "确定要删除这个任务吗？此操作无法撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deleteTask(onDeleted)
+                showDeleteDialog = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { showDeleteDialog = false },
+            icon = Icons.Default.Delete
         )
     }
 }

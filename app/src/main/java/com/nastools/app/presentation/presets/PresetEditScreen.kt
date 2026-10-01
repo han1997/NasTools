@@ -30,6 +30,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,13 +44,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
 import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +63,7 @@ fun PresetEditScreen(
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     val motionEnabled = rememberNasMotionEnabled()
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.updateLocalUri(it.toString()) }
@@ -70,7 +76,16 @@ fun PresetEditScreen(
         viewModel.load(presetId)
     }
 
+    val transientMessage = uiState.errorMessage
+    LaunchedEffect(transientMessage) {
+        if (!transientMessage.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(transientMessage)
+            viewModel.clearTransientMessage()
+        }
+    }
+
     NasScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             NasTopAppBar(
                 title = if (presetId == null) "新建预设" else "编辑预设",
@@ -81,14 +96,24 @@ fun PresetEditScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.save(onBack) }) {
-                        Icon(Icons.Default.Check, "保存")
+                    if (uiState.loadErrorMessage == null) {
+                        IconButton(onClick = { viewModel.save(onBack) }) {
+                            Icon(Icons.Default.Check, "保存")
+                        }
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
+        if (uiState.loadErrorMessage != null && !uiState.isLoading) {
+            NasErrorState(
+                title = "加载预设失败",
+                message = uiState.loadErrorMessage ?: "无法加载上传预设",
+                onRetry = viewModel::retryLoad,
+                modifier = Modifier.padding(padding)
+            )
+        } else {
+            Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
@@ -205,10 +230,6 @@ fun PresetEditScreen(
                 onCheckedChange = viewModel::updateDeleteAfterUpload
             )
 
-            uiState.errorMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
-            }
-
             Button(
                 onClick = { viewModel.save(onBack) },
                 modifier = Modifier.fillMaxWidth(),
@@ -216,6 +237,42 @@ fun PresetEditScreen(
             ) {
                 Text(if (uiState.isSaving) "保存中..." else "保存")
             }
+        }
+        }
+    }
+}
+
+@Preview(name = "预设编辑 · 浅色", showBackground = true)
+@Composable
+private fun PresetEditLightPreview() {
+    NasToolsTheme(darkTheme = false) { PresetEditPreviewContent() }
+}
+
+@Preview(name = "预设编辑 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun PresetEditDarkPreview() {
+    NasToolsTheme(darkTheme = true) { PresetEditPreviewContent() }
+}
+
+@Composable
+private fun PresetEditPreviewContent() {
+    NasScaffold(
+        topBar = {
+            NasTopAppBar(title = "编辑预设", subtitle = "来源、目录和冲突策略")
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(NasSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
+        ) {
+            OutlinedTextField(value = "照片备份", onValueChange = {}, label = { Text("预设名称") })
+            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                Text("选择本地文件夹")
+            }
+            OutlinedTextField(value = "/backup/photos", onValueChange = {}, label = { Text("远端目录") })
+            Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("保存") }
         }
     }
 }

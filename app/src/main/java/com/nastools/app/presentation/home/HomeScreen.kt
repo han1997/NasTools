@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.NasConfigEntity
 import com.nastools.app.presentation.components.NasEmptyState
+import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
 import com.nastools.app.presentation.components.NasMiniFab
@@ -90,17 +91,30 @@ fun HomeScreen(
                 )
             }
 
-            // 显示骨架屏加载状态以提升感知速度
-            if (uiState.isLoading) {
-                LoadingSkeleton(modifier = Modifier.fillMaxSize())
-            } else {
-                ConfigList(
-                    motionEnabled = motionEnabled,
-                    configs = uiState.configs,
-                    onConfigClick = onNavigateToBrowser,
-                    onManageClick = onNavigateToConfig,
-                    onCreateClick = onNavigateToNewConfig
-                )
+            when {
+                uiState.loadErrorMessage != null -> {
+                    NasErrorState(
+                        title = "加载首页失败",
+                        message = uiState.loadErrorMessage ?: "无法加载首页",
+                        onRetry = viewModel::reload,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                uiState.isLoading -> {
+                    // 显示骨架屏加载状态以提升感知速度
+                    LoadingSkeleton(modifier = Modifier.fillMaxSize())
+                }
+
+                else -> {
+                    ConfigList(
+                        motionEnabled = motionEnabled,
+                        configs = uiState.configs,
+                        onConfigClick = onNavigateToBrowser,
+                        onManageClick = onNavigateToConfig,
+                        onCreateClick = onNavigateToNewConfig
+                    )
+                }
             }
         }
     }

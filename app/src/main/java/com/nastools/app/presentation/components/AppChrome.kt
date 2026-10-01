@@ -22,6 +22,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CardElevation
@@ -34,6 +40,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -196,6 +203,68 @@ fun NasEmptyState(
             }
         }
     }
+}
+
+@Composable
+fun NasErrorState(
+    title: String,
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Default.Error
+) {
+    NasEmptyState(
+        icon = icon,
+        title = title,
+        message = message,
+        modifier = modifier,
+        action = {
+            Button(onClick = onRetry) {
+                Text("重试")
+            }
+        }
+    )
+}
+
+@Composable
+fun NasConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = Icons.Default.Warning,
+    confirmIsDestructive: Boolean = true
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        icon = icon?.let { imageVector ->
+            { Icon(imageVector, contentDescription = null) }
+        },
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = if (confirmIsDestructive) {
+                    ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    ButtonDefaults.textButtonColors()
+                }
+            ) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 @Composable

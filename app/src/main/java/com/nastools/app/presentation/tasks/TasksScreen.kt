@@ -25,6 +25,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.presentation.components.NasEmptyState
+import com.nastools.app.presentation.components.NasErrorState
+import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
 import com.nastools.app.presentation.components.NasScaffold
@@ -49,14 +51,25 @@ fun TasksScreen(
     onNavigateToDetail: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
     val motionEnabled = rememberNasMotionEnabled()
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var taskPendingDelete by remember { mutableStateOf<TaskEntity?>(null) }
+    var taskPendingCancel by remember { mutableStateOf<TaskEntity?>(null) }
+
+    val transientMessage = uiState.errorMessage ?: uiState.message
+    LaunchedEffect(transientMessage) {
+        if (!transientMessage.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(transientMessage)
+            viewModel.clearTransientMessage()
+        }
+    }
 
     val canBatchDelete = selectedTab in setOf(1, 2) // Completed or Failed tabs
 
     NasScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             NasTopAppBar(
                 title = "任务中心",
@@ -110,7 +123,29 @@ fun TasksScreen(
             )
         }
     ) { padding ->
-        Column(
+        when {
+            uiState.loadErrorMessage != null -> {
+                NasErrorState(
+                    title = "加载任务失败",
+                    message = uiState.loadErrorMessage ?: "无法加载任务列表",
+                    onRetry = viewModel::reload,
+                    modifier = Modifier.padding(padding),
+                    icon = Icons.Default.Error
+                )
+            }
+
+            uiState.isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            else -> Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
@@ -136,7 +171,7 @@ fun TasksScreen(
                         when (action) {
                             "pause" -> viewModel.pauseTask(task.id)
                             "resume" -> viewModel.resumeTask(task.id)
-                            "cancel" -> viewModel.cancelTask(task.id)
+                            "cancel" -> taskPendingCancel = task
                         }
                     },
                     motionEnabled = motionEnabled
@@ -166,53 +201,48 @@ fun TasksScreen(
                 )
             }
         }
+        }
     }
 
     if (showBatchDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showBatchDeleteDialog = false },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("批量删除") },
-            text = { Text("确定要删除选中的 ${uiState.selectedTaskIds.size} 个任务吗？此操作无法撤销。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.batchDelete(uiState.selectedTaskIds)
-                        showBatchDeleteDialog = false
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "批量删除",
+            message = "确定要删除选中的 ${uiState.selectedTaskIds.size} 个任务吗？此操作无法撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.batchDelete(uiState.selectedTaskIds)
+                showBatchDeleteDialog = false
             },
-            dismissButton = {
-                TextButton(onClick = { showBatchDeleteDialog = false }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { showBatchDeleteDialog = false },
+            icon = Icons.Default.Delete
         )
     }
 
     taskPendingDelete?.let { task ->
-        AlertDialog(
-            onDismissRequest = { taskPendingDelete = null },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("删除任务") },
-            text = { Text("确定要删除任务 ${task.title} 吗？此操作只删除任务记录，不会删除 NAS 上的文件。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteTask(task.id)
-                        taskPendingDelete = null
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "删除任务",
+            message = "确定要删除任务 ${task.title} 吗？此操作只删除任务记录，不会删除 NAS 上的文件。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deleteTask(task.id)
+                taskPendingDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { taskPendingDelete = null }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { taskPendingDelete = null },
+            icon = Icons.Default.Delete
+        )
+    }
+
+    taskPendingCancel?.let { task ->
+        NasConfirmDialog(
+            title = "取消任务",
+            message = "确定要取消任务 ${task.title} 吗？任务会停止，但不会删除 NAS 上的文件。",
+            confirmText = "取消任务",
+            onConfirm = {
+                viewModel.cancelTask(task.id)
+                taskPendingCancel = null
+            },
+            onDismiss = { taskPendingCancel = null },
+            icon = Icons.Default.Cancel
         )
     }
 }
