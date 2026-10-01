@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/concurrency-patterns.md", "reason": "SkipLog 需线程安全：文件夹路径下 uploadFile 并发执行（Semaphore(3)）"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "警告/错误如何上报给用户：本任务把静默跳过改为可见警告"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用既有 skippedFolders 模式，不新造平行机制"}

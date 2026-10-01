@@ -33,6 +33,10 @@ Errors that prevent the primary operation from succeeding:
 Operations where the primary goal succeeded but cleanup/housekeeping failed:
 - Local file/folder deletion failure after successful upload
 - Non-blocking post-upload operations
+- **Items skipped rather than uploaded** — file already exists remotely with an identical
+  size (default `resume_or_overwrite`), or does not match `filterRegex`. These are recorded
+  as `completed` bytes, so they MUST also produce a warning or the user cannot tell that
+  content was never transferred. See Pattern 3.
 
 **Behavior**: Return warning message from executor, `TaskManager` marks task as `completed` with `errorMessage` containing warning text.
 
@@ -109,6 +113,60 @@ if (warning != null) {
     taskDao.updateStatus(current.id, "completed")
 }
 ```
+
+---
+
+### Pattern 3: Aggregate Warnings for Repetitive Skips
+
+**When**: N items are skipped for the *same* reason (conflict strategy, filter rule).
+Emit **one** summary line, never one line per item.
+
+**Why**: `formatUploadWarnings()` joins every warning with `；`. A folder with 200 skipped
+files would produce a several-hundred-character wall of text that buries the warnings that
+actually need attention, and overflows the UI.
+
+**Shape**: count first in the sentence head, then a truncated name preview.
+
+```kotlin
+/** 本轮上传中被「静默跳过」的文件登记处。 */
+internal class SkipLog {
+    // 文件夹路径下 uploadFile 并发执行（Semaphore(3)），两个列表都必须同步
+    val sameName: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val filtered: MutableList<String> = Collections.synchronizedList(mutableListOf())
+
+    fun toWarnings(): List<String> = buildList {
+        if (filtered.isNotEmpty()) add("${filtered.size} 个文件未匹配过滤规则，已跳过")
+        if (sameName.isNotEmpty()) add("跳过 ${sameName.size} 个同名文件：${preview(sameName)}")
+    }
+
+    private fun preview(names: List<String>): String {
+        val head = names.take(MAX_PREVIEW).joinToString("、")
+        return if (names.size > MAX_PREVIEW) "$head …" else head
+    }
+
+    private companion object { const val MAX_PREVIEW = 10 }
+}
+```
+
+**Three rules that are easy to get wrong**
+
+1. **Count goes in the head only.** Do NOT append「等 N 个」at the tail —
+   it produces the redundant「跳过 25 个同名文件：… 等 25 个」.
+2. **The aggregator is shared by reference, not per-item.** This is the *opposite* of the
+   `warnings` list in folder uploads, which is a per-file `fileWarnings` that gets merged
+   afterwards. `SkipLog` is created once in `execute()` and passed down; emitting inside
+   the per-file function would print the summary N times.
+3. **Call it once per execution path.** If a method has multiple mutually-exclusive returns,
+   each return path needs the line — but verify they really are exclusive, or the summary
+   will duplicate.
+
+**Thread safety**: writers are concurrent per-file tasks under `Semaphore(3)`; use
+`Collections.synchronizedList` as the existing `fileWarnings` does. Read (`toWarnings()`)
+only after `coroutineScope { awaitAll() }` has drained all writers.
+
+**Test points**: empty aggregator produces no warning (regression guard for "no skips means
+unchanged output"); truncation boundary (11th name absent, ends with ` …`); two categories
+do not merge into one another.
 
 ---
 
@@ -350,3 +408,30 @@ if (warning != null) {
 3. Subdirectories: maintain "delete self after contents" behavior
 
 **Prevention**: When working with SAF tree URIs, remember tree root has restricted permissions. Only attempt to delete children, not the root itself.
+
+### Mistake 3: Silent Completion (Skipped Work Counted as Done)
+
+**Problem**: A file deliberately skipped — remote already holds an identical file
+(`resume_or_overwrite` size match), or it does not match `filterRegex` — is passed to
+`progressTracker.markComplete(fileSize)` and the function returns without recording anything.
+The task reaches 100% and `completed`, but the file was never transferred.
+
+**Symptom**: The user believes the upload finished, yet files are missing on the remote.
+No warning, no log entry, nothing in the task detail. The discrepancy is invisible.
+
+**Fix**:
+1. Record every skip in an aggregator threaded through the upload path (see Pattern 3).
+2. Emit one summary warning per upload.
+3. Leave the byte accounting alone — the progress bar was never wrong; only the *visibility*
+   was missing.
+
+**Prevention**: Whenever a path calls `markComplete(...)` and returns **without doing the real
+work**, ask: *can the user tell this happened?* If not, it needs a warning. Progress accounting
+and user-visible reporting are two separate obligations — satisfying the first does not satisfy
+the second.
+
+> **Related trap**: you cannot detect "everything was skipped" with
+> `if (progressTracker.completedBytes() == 0L)`. Skipped files call `markComplete(fileSize)`,
+> so `completedBytes` is **above** zero precisely in the all-skipped case. A guard written that
+> way is unreachable in the scenario it describes. Check `SkipLog`-style aggregators instead,
+> or count skips explicitly.

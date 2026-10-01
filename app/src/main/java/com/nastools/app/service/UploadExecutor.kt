@@ -99,6 +99,36 @@ internal fun formatUploadWarnings(warnings: List<String>): String? {
     return messages.joinToString("；")
 }
 
+/**
+ * 本轮上传中被「静默跳过」的文件登记处。
+ * 两个列表都必须是线程安全的 —— 文件夹路径下 uploadFile 并发执行（Semaphore(3)）。
+ */
+internal class SkipLog {
+    val sameName: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val filtered: MutableList<String> = Collections.synchronizedList(mutableListOf())
+
+    fun isEmpty(): Boolean = sameName.isEmpty() && filtered.isEmpty()
+
+    /** 汇总成警告文案；无跳过时返回空列表。 */
+    fun toWarnings(): List<String> = buildList {
+        if (filtered.isNotEmpty()) {
+            add("${filtered.size} 个文件未匹配过滤规则，已跳过")
+        }
+        if (sameName.isNotEmpty()) {
+            add("跳过 ${sameName.size} 个同名文件：${preview(sameName)}")
+        }
+    }
+
+    private fun preview(names: List<String>): String {
+        val head = names.take(MAX_PREVIEW).joinToString("、")
+        return if (names.size > MAX_PREVIEW) "$head …" else head
+    }
+
+    private companion object {
+        const val MAX_PREVIEW = 10
+    }
+}
+
 @Singleton
 class UploadExecutor @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -129,6 +159,7 @@ class UploadExecutor @Inject constructor(
         val progressTracker = UploadProgressTracker(totalTaskBytes = totalBytes, onProgress = onProgress)
 
         val warnings = mutableListOf<String>()
+        val skips = SkipLog()
 
         try {
             if (sourceType == "folder") {
@@ -138,6 +169,7 @@ class UploadExecutor @Inject constructor(
                     options = options.copy(sourceType = "folder"),
                     totalBytes = totalBytes,
                     warnings = warnings,
+                    skips = skips,
                     taskId = task.id,
                     originalTitle = task.title,
                     progressTracker = progressTracker
@@ -153,12 +185,14 @@ class UploadExecutor @Inject constructor(
                     fileSize = totalBytes,
                     options = options.copy(sourceType = "file"),
                     warnings = warnings,
+                    skips = skips,
                     taskId = task.id,
                     originalTitle = task.title,
                     remoteDirForTitle = RemotePath.parent(remotePath),
                     progressTracker = progressTracker,
                     progressKey = remotePath
                 )
+                warnings.addAll(skips.toWarnings())
             }
         } finally {
             // Restore original title after upload completes or fails
@@ -174,6 +208,7 @@ class UploadExecutor @Inject constructor(
         options: UploadPresetOptions,
         totalBytes: Long,
         warnings: MutableList<String>,
+        skips: SkipLog,
         taskId: String,
         originalTitle: String,
         progressTracker: UploadProgressTracker
@@ -196,6 +231,7 @@ class UploadExecutor @Inject constructor(
                 options = options,
                 warnings = warnings,
                 skippedFolders = skippedFolders,
+                skips = skips,
                 taskId = taskId,
                 originalTitle = originalTitle,
                 isRoot = true,
@@ -209,6 +245,7 @@ class UploadExecutor @Inject constructor(
             if (skippedFolders.isNotEmpty()) {
                 warnings.add("跳过 ${skippedFolders.size} 个已存在的文件夹")
             }
+            warnings.addAll(skips.toWarnings())
             return
         }
 
@@ -220,6 +257,7 @@ class UploadExecutor @Inject constructor(
             options = options,
             warnings = warnings,
             skippedFolders = skippedFolders,
+            skips = skips,
             taskId = taskId,
             originalTitle = originalTitle,
             isRoot = true,
@@ -229,6 +267,7 @@ class UploadExecutor @Inject constructor(
         if (skippedFolders.isNotEmpty()) {
             warnings.add("跳过 ${skippedFolders.size} 个已存在的文件夹")
         }
+        warnings.addAll(skips.toWarnings())
     }
 
     private suspend fun uploadDirectory(
@@ -239,6 +278,7 @@ class UploadExecutor @Inject constructor(
         options: UploadPresetOptions,
         warnings: MutableList<String>,
         skippedFolders: MutableList<String>,
+        skips: SkipLog,
         taskId: String,
         originalTitle: String,
         isRoot: Boolean = false,
@@ -294,6 +334,7 @@ class UploadExecutor @Inject constructor(
                     options = options,
                     warnings = warnings,
                     skippedFolders = skippedFolders,
+                    skips = skips,
                     taskId = taskId,
                     originalTitle = originalTitle,
                     isRoot = false,
@@ -321,6 +362,7 @@ class UploadExecutor @Inject constructor(
                                 fileSize = fileSize,
                                 options = options,
                                 warnings = fileWarnings,
+                                skips = skips,
                                 taskId = taskId,
                                 originalTitle = originalTitle,
                                 remoteDirForTitle = remoteDirForTitle,
@@ -368,6 +410,7 @@ class UploadExecutor @Inject constructor(
         fileSize: Long,
         options: UploadPresetOptions,
         warnings: MutableList<String>,
+        skips: SkipLog,
         taskId: String,
         originalTitle: String,
         remoteDirForTitle: String,
@@ -378,6 +421,7 @@ class UploadExecutor @Inject constructor(
             runCatching { Regex(it) }.getOrElse { throw IOException("过滤正则格式不正确") }
         }
         if (filterRegex != null && !filterRegex.containsMatchIn(localName)) {
+            skips.filtered.add(localName)
             progressTracker.markComplete(fileSize)
             return false
         }
@@ -392,6 +436,7 @@ class UploadExecutor @Inject constructor(
 
         val plan = prepareFileTarget(adapter, remotePath, fileSize, options)
         if (plan.skip) {
+            skips.sameName.add(localName)
             progressTracker.markComplete(fileSize)
             return false
         }

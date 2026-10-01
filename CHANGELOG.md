@@ -6,6 +6,27 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-01
+
+### Fixed
+
+- **上传时被跳过的文件不再静默消失** —— 因「远端已存在同名文件」而跳过的文件，
+  过去只被计入已完成字节数却从未真正上传，任务显示 100% 完成，用户却查不到任何痕迹。
+  现在会汇总为一条可见警告：「跳过 N 个同名文件：a.jpg、b.jpg…」（超过 10 个截断为前 10 个）。
+  同类问题一并修复：被 `filterRegex` 过滤规则排除的文件过去同样静默，现在汇总为
+  「N 个文件未匹配过滤规则，已跳过」。
+  **默认冲突策略未改动** —— 仍是「续传，完整则跳过」，因为跳过本身是预期行为
+  （重复上传时不该重新传输），缺的是「让用户知道」。
+  改动位置：`app/src/main/java/com/nastools/app/service/UploadExecutor.kt`（新增 `SkipLog`
+  聚合器，线程安全以适配并发上传）、`app/src/main/java/com/nastools/app/presentation/tasks/TasksScreen.kt`
+  （列表卡片上的警告文本限制为 2 行，避免长警告撑破卡片）。
+
+### Added
+
+- **单元测试 `UploadWarningsTest`** —— 7 项断言，覆盖：无跳过时不产生任何新警告（回归防线）、
+  跳过汇总的计数与文件名、超 10 个的截断边界、过滤规则跳过与同名跳过互不合并。
+  位于 `app/src/test/java/com/nastools/app/service/UploadWarningsTest.kt`。
+
 ## [0.2.0] - 2026-10-01
 
 > **历史缺口**：Flutter → Compose 重写过程中的多次提交（文件浏览器、上传可靠性加固、
