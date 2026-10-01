@@ -342,3 +342,37 @@ Hardened upload progress/error handling, added safer destructive-action confirma
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: 统一页面状态反馈与危险操作确认
+
+**Date**: 2026-10-02
+**Task**: 统一页面状态反馈与危险操作确认
+**Branch**: `fix/ui-state-consistency`
+
+### Summary
+
+完成 ui-state-consistency：新增可重试 NasErrorState 和共享 NasConfirmDialog；Home、Tasks、Browser、连接配置、预设编辑、任务详情区分页面加载错误与一次性 Snackbar；Browser 刷新失败保留旧列表；任务暂停/恢复/取消/重试/删除失败可见，取消任务纳入二次确认；补充预览、浏览器状态单测、state-feedback 前端规范，版本升至 0.2.2 并更新 README/CHANGELOG。验证通过 testDebugUnitTest、assembleDebug、assembleRelease、lintDebug，release 使用 apksigner v2 验签；无 adb/模拟器，视觉手工验收待设备执行。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bd9a371` | (see git log) |
+| `6f1a9a5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
