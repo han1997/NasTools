@@ -16,6 +16,7 @@ This directory contains guidelines for frontend development with Jetpack Compose
 |-------|-------------|--------|
 | [Compose Optimization](./compose-optimization.md) | Performance optimization patterns for Jetpack Compose UI | Filled |
 | [Design Tokens](./design-tokens.md) | 设计 token（间距/形状/高度/状态色）使用契约、dp 字面量三分法、预览规范 | Filled |
+| [State Feedback](./state-feedback.md) | 页面加载/空态/错误态、Snackbar 一次性反馈、危险操作确认契约 | Filled |
 
 ---
 
