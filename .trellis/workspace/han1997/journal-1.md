@@ -309,3 +309,36 @@ Hardened upload progress/error handling, added safer destructive-action confirma
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Upload skip visibility & feature-optimization task tree
+
+**Date**: 2026-10-01
+**Task**: Upload skip visibility & feature-optimization task tree
+**Branch**: `main`
+
+### Summary
+
+查清同名文件处理真相：默认是 resume_or_overwrite（按远端大小判断），不是无脑跳过；真缺陷是跳过完全静默（UploadExecutor.kt:394-397）。新增 SkipLog 聚合器把跳过汇总为可见警告，并修复同类问题（filterRegex 静默跳过）。默认策略与 prepareFileTarget 决策逻辑刻意未动。新建父任务 10-01-experience-feature-optimization 与 7 个子任务构成优化任务树，本轮完成子任务 1。顺带发现：上传跳过提示的旧警告因 completedBytes 语义而不可达；NasConfigEntity.password 列名 passwordEncrypted 但实际明文存储。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f0f44d8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
