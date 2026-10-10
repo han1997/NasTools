@@ -14,9 +14,19 @@ import com.nastools.app.domain.model.UploadTaskPayload
 import com.nastools.app.service.TaskManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import java.util.concurrent.CancellationException
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class FileItem(
     val name: String,
@@ -36,6 +46,12 @@ sealed class TaskDetailUiState {
     data class Error(val message: String) : TaskDetailUiState()
 }
 
+data class TaskDetailFeedback(
+    val message: String? = null,
+    val errorMessage: String? = null
+)
+
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class TaskDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -47,39 +63,49 @@ class TaskDetailViewModel @Inject constructor(
 
     private val taskId: String = checkNotNull(savedStateHandle["taskId"])
     private val gson = Gson()
+    private val reloadRequests = MutableStateFlow(0)
+    private val _feedback = MutableStateFlow(TaskDetailFeedback())
+    val feedback: StateFlow<TaskDetailFeedback> = _feedback.asStateFlow()
 
-    val uiState: StateFlow<TaskDetailUiState> = repository.observeById(taskId)
-        .map { task ->
-            if (task == null) {
-                TaskDetailUiState.Error("任务不存在")
-            } else {
-                val configName = task.nasConfigId?.let { configRepository.getById(it)?.name }
-                val payload = try {
-                    gson.fromJson(task.payloadJson, UploadTaskPayload::class.java)
-                } catch (e: Exception) {
-                    null
+    val uiState: StateFlow<TaskDetailUiState> = reloadRequests
+        .flatMapLatest {
+            repository.observeById(taskId)
+                .map { task ->
+                    if (task == null) {
+                        TaskDetailUiState.Error("任务不存在")
+                    } else {
+                        val configName = task.nasConfigId?.let { configRepository.getById(it)?.name }
+                        val payload = try {
+                            gson.fromJson(task.payloadJson, UploadTaskPayload::class.java)
+                        } catch (e: Exception) {
+                            null
+                        }
+
+                        val (files, sourceDeleted) = if (payload != null) {
+                            scanFiles(payload)
+                        } else {
+                            Pair(emptyList(), false)
+                        }
+
+                        TaskDetailUiState.Success(
+                            task = task,
+                            configName = configName,
+                            files = files,
+                            sourceDeleted = sourceDeleted
+                        )
+                    }
                 }
-
-                val (files, sourceDeleted) = if (payload != null) {
-                    scanFiles(payload)
-                } else {
-                    Pair(emptyList(), false)
-                }
-
-                TaskDetailUiState.Success(
-                    task = task,
-                    configName = configName,
-                    files = files,
-                    sourceDeleted = sourceDeleted
-                )
-            }
+                .catch { emit(TaskDetailUiState.Error(it.message ?: "加载任务详情失败")) }
         }
-        .catch { emit(TaskDetailUiState.Error(it.message ?: "加载失败")) }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             TaskDetailUiState.Loading
         )
+
+    fun reload() {
+        reloadRequests.update { it + 1 }
+    }
 
     private fun scanFiles(payload: UploadTaskPayload): Pair<List<FileItem>, Boolean> {
         val uri = Uri.parse(payload.localUri)
@@ -111,7 +137,7 @@ class TaskDetailViewModel @Inject constructor(
     }
 
     private fun scanDirectory(directory: DocumentFile, result: MutableList<FileItem>, depth: Int) {
-        if (depth > 10) return // Prevent infinite recursion
+        if (depth > 10) return
 
         try {
             directory.listFiles().forEach { file ->
@@ -124,15 +150,33 @@ class TaskDetailViewModel @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            // Ignore errors during scanning
+            // Ignore errors during scanning; the source is shown as unavailable below.
         }
     }
 
-    fun deleteTask() = viewModelScope.launch {
-        repository.deleteById(taskId)
+    fun deleteTask(onDeleted: () -> Unit) = viewModelScope.launch {
+        try {
+            repository.deleteById(taskId)
+            onDeleted()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _feedback.value = TaskDetailFeedback(errorMessage = e.message ?: "删除任务失败")
+        }
     }
 
-    fun retryTask() = viewModelScope.launch {
-        taskManager.retry(taskId)
+    fun retryTask(onRetried: () -> Unit) = viewModelScope.launch {
+        try {
+            taskManager.retry(taskId)
+            onRetried()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _feedback.value = TaskDetailFeedback(errorMessage = e.message ?: "重试任务失败")
+        }
+    }
+
+    fun clearFeedback() {
+        _feedback.value = TaskDetailFeedback()
     }
 }

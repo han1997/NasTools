@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范入口：本任务全部改动位于 presentation/ 前端层"}
+{"file": ".trellis/spec/frontend/compose-optimization.md", "reason": "remember 依赖键规则；本次改写多处 Composable（NasStatusBadge、卡片、预览）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "R6 抽出重复 statusLabel/statusTone 的依据（禁止跨文件复制）"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务刻意不跨层：不改 data/domain/service，status 字符串取值集合保持不变"}

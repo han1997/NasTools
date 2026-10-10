@@ -6,6 +6,69 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-02
+
+### Added
+
+- **统一页面状态反馈与危险操作确认** —— 首页、文件浏览器、连接配置、上传预设和任务详情现在区分加载中、内容为空和加载失败；页面加载失败提供持续可见的重试入口，已有远端列表刷新失败则保留旧内容并通过 Snackbar 提示。
+- **操作失败不再静默** —— 连接测试、保存、远端操作、上传任务创建、任务暂停/恢复/取消/重试/删除等失败都会通过 Snackbar 告知用户。
+- **共享错误态与确认对话框** —— 新增 `NasErrorState` / `NasConfirmDialog`，连接删除、预设删除、远端删除、任务删除、批量删除和任务取消统一二次确认。
+
+### Tests
+
+- 新增浏览器页面状态策略单元测试，覆盖空列表错误态、保留旧列表刷新失败和无错误三种路径。
+
+## [0.2.1] - 2026-10-01
+
+### Fixed
+
+- **上传时被跳过的文件不再静默消失** —— 因「远端已存在同名文件」而跳过的文件，
+  过去只被计入已完成字节数却从未真正上传，任务显示 100% 完成，用户却查不到任何痕迹。
+  现在会汇总为一条可见警告：「跳过 N 个同名文件：a.jpg、b.jpg…」（超过 10 个截断为前 10 个）。
+  同类问题一并修复：被 `filterRegex` 过滤规则排除的文件过去同样静默，现在汇总为
+  「N 个文件未匹配过滤规则，已跳过」。
+  **默认冲突策略未改动** —— 仍是「续传，完整则跳过」，因为跳过本身是预期行为
+  （重复上传时不该重新传输），缺的是「让用户知道」。
+  改动位置：`app/src/main/java/com/nastools/app/service/UploadExecutor.kt`（新增 `SkipLog`
+  聚合器，线程安全以适配并发上传）、`app/src/main/java/com/nastools/app/presentation/tasks/TasksScreen.kt`
+  （列表卡片上的警告文本限制为 2 行，避免长警告撑破卡片）。
+
+### Added
+
+- **单元测试 `UploadWarningsTest`** —— 7 项断言，覆盖：无跳过时不产生任何新警告（回归防线）、
+  跳过汇总的计数与文件名、超 10 个的截断边界、过滤规则跳过与同名跳过互不合并。
+  位于 `app/src/test/java/com/nastools/app/service/UploadWarningsTest.kt`。
+
+## [0.2.0] - 2026-10-01
+
+> **历史缺口**：Flutter → Compose 重写过程中的多次提交（文件浏览器、上传可靠性加固、
+> 性能优化、任务中心与预设等）当时未记录到本文件。本节仅记录设计 token 迁移，
+> **不代表 0.2.0 的全部内容**。
+
+### Added
+
+- **设计 token 体系接入 UI** —— 把上一轮已定义但零消费的 `NasSpacing` / `NasShape` / `NasElevation` / `nasStatusColors()` 接入 9 个页面与共享组件，间距、圆角、高度不再散落为裸 dp 字面量。`theme/` 之外的裸 dp 由 158 处出现降至 23 处，余下均为图标尺寸、描边宽度、进度条厚度等组件固有值，逐条在任务设计文档中说明理由。`app/src/main/java/com/nastools/app/presentation/**`
+- **`@Preview` 基建** —— 6 个页面各加浅色/深色两组预览，另有任务状态徽章六态对照条，共 14 个。此前全仓无任何 `@Preview`。`app/src/main/java/com/nastools/app/presentation/**`
+- **状态映射单元测试** —— `TaskStatusUiTest` 覆盖六个任务状态的语义色档位，并断言「等待中/已暂停/已完成」三者互不相等、「失败」与「已取消」不同色，作为该缺陷的回归防线。`app/src/test/java/com/nastools/app/presentation/tasks/TaskStatusUiTest.kt`
+
+### Changed
+
+- **深色模式首次真正生效** —— `NasToolsTheme` 的 `darkTheme` 默认值由 `false` 改为 `isSystemInDarkTheme()`。此前 `MainActivity` 是唯一调用点且不传参，应用**始终走浅色**，`DarkColorScheme` 的 68 行定义与 12 组深色状态色从未在任何设备上渲染过。`app/src/main/java/com/nastools/app/presentation/theme/Theme.kt`
+- **卡片圆角 8dp → 14dp**（13 处、6 个页面），对话框圆角随 M3 `Shapes.extraLarge` 由 8dp 变为 28dp。`app/src/main/java/com/nastools/app/presentation/theme/Shapes.kt`
+- **卡片改为 flat + 1dp 描边** —— 去掉静止态阴影。深色模式下阴影几乎不可见，描边才是跨主题都成立的层次手段；1dp 描边机制原本就存在，卡片此前同时有阴影和描边两套手段。`app/src/main/java/com/nastools/app/presentation/components/AppChrome.kt`
+- **任务状态呈现收敛为单一来源** —— `statusLabel()` 原在任务列表页与任务详情页各定义一份，连同新增的 `statusTone()` 一并抽到 `TaskStatusUi.kt`。`app/src/main/java/com/nastools/app/presentation/tasks/TaskStatusUi.kt`
+
+### Fixed
+
+- **等待中 / 已暂停 / 已完成渲染成完全相同的绿色** —— `NasStatusBadge(text, positive: Boolean)` 只有两个分支，调用方传 `positive = task.status !in setOf("failed", "cancelled")`，使这三个状态在界面上不可区分。改为五档语义色（Neutral / Progress / Success / Warning / Danger），六态映射：等待=中性、运行中=主色、已暂停=警示、完成=成功、失败=危险、已取消=中性。「已取消」不再与「失败」同色 —— 它是用户主动终止的终态，报红等于把用户的决定描述成故障。`app/src/main/java/com/nastools/app/presentation/components/AppChrome.kt`、`app/src/main/java/com/nastools/app/presentation/theme/StatusColors.kt`
+- **`view.context as Activity` 在非 Activity 场景崩溃** —— 改为安全转换 `as? Activity`，使 Compose 预览等场景不再抛 `ClassCastException`，这也是新增预览基建能渲染的前提。`app/src/main/java/com/nastools/app/presentation/theme/Theme.kt`
+
+## [历史 · Flutter 时代，已废弃]
+
+> 以下为 Flutter 实现（`lib/`、`pubspec.yaml`、Riverpod、go_router）的变更记录。
+> 该代码库已在 `5c97dd0 Migrate from Flutter to Jetpack Compose` 中整体删除，
+> 本段内容仅作历史留存，不对应仓库中任何现行代码。
+
 ### Added
 
 - **远端文件管理器升级** —— 把原"只能浏览 + 新建文件夹"的页面升级为完整 WebDAV 管理器：列表/网格视图切换并跨 session 保留（`SettingsRepository.browserViewMode`）、长按多选、单项重命名 / 移动 / 复制 / 删除、批量删除 / 移动（顺序执行，WebDAV 对同目录并发动作敏感）、下载到本地 (SAF "另存为")、上传单文件或文件夹。状态管理用 `RemoteBrowserController`（StateNotifier）收口，被浏览器页与目录选择器复用。`lib/ui/pages/browser/remote_browser_controller.dart`、`lib/ui/pages/browser/remote_browser_page.dart`、`lib/core/settings/settings_repository.dart`
@@ -53,7 +116,7 @@
 - **#10 TaskDao 使用 TaskStatus 常量** —— 去掉硬编码 `'waiting'/'running'/'paused'` 字面量，统一引用 `TaskStatus.waiting` 等。`lib/core/database/daos/task_dao.dart`
 - **README 强调"首次拉起：必跑三步"** —— `flutter pub get` + `flutter create --platforms=android .` + `dart run build_runner build`，加 ⚠ 警示放到醒目位置。`README.md`
 
-## [0.1.0] - 初始骨架
+## [0.1.0] - 初始骨架（Flutter，已废弃）
 
 ### Added
 

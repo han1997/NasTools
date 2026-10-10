@@ -10,7 +10,6 @@ import com.nastools.app.domain.model.UploadPresetOptions
 import com.nastools.app.domain.model.UploadPresetOptionsCodec
 import com.nastools.app.service.UploadTaskCreator
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 data class PresetEditUiState(
     val id: String? = null,
@@ -38,6 +38,7 @@ data class PresetEditUiState(
     val deleteAfterUpload: Boolean = false,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val loadErrorMessage: String? = null,
     val errorMessage: String? = null
 )
 
@@ -58,8 +59,18 @@ class PresetEditViewModel @Inject constructor(
         loadedPresetId = presetId
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            val configs = configRepository.observeAll().first()
+            _uiState.update { it.copy(isLoading = true, loadErrorMessage = null, errorMessage = null) }
+            val configsResult = runCatching { configRepository.observeAll().first() }
+            val configs = configsResult.getOrNull()
+            if (configs == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        loadErrorMessage = configsResult.exceptionOrNull()?.message ?: "加载连接配置失败"
+                    )
+                }
+                return@launch
+            }
 
             if (presetId.isNullOrBlank()) {
                 originalPreset = null
@@ -71,11 +82,17 @@ class PresetEditViewModel @Inject constructor(
                 return@launch
             }
 
-            val preset = presetRepository.getById(presetId)
+            val presetResult = runCatching { presetRepository.getById(presetId) }
+            val preset = presetResult.getOrNull()
             originalPreset = preset
             if (preset == null) {
                 _uiState.update {
-                    it.copy(configs = configs, isLoading = false, errorMessage = "上传预设不存在")
+                    it.copy(
+                        configs = configs,
+                        isLoading = false,
+                        loadErrorMessage = presetResult.exceptionOrNull()?.message
+                            ?: "上传预设不存在"
+                    )
                 }
                 return@launch
             }
@@ -99,6 +116,12 @@ class PresetEditViewModel @Inject constructor(
                 isLoading = false
             )
         }
+    }
+
+    fun retryLoad() {
+        val presetId = loadedPresetId
+        loadedPresetId = null
+        load(presetId)
     }
 
     fun updateNasConfigId(value: String) = update { copy(nasConfigId = value, errorMessage = null) }
@@ -205,6 +228,10 @@ class PresetEditViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun clearTransientMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     private fun validate(): String? {

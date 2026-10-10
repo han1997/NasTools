@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/concurrency-patterns.md", "reason": "核对 SkipLog 的同步写法与既有 fileWarnings 一致"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对新增警告文案不与「本地未能删除」类汇总互相吞并"}

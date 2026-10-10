@@ -1,7 +1,7 @@
 package com.nastools.app.presentation.components
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CardElevation
@@ -33,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -45,8 +52,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.nastools.app.presentation.theme.NasElevation
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasStatusTone
+import com.nastools.app.presentation.theme.nasStatusColors
 
-val NasCardShape = RoundedCornerShape(16.dp)
 val NasSmallShape = RoundedCornerShape(12.dp)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,7 +147,7 @@ fun NasEmptyState(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = NasSpacing.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -153,10 +164,10 @@ fun NasEmptyState(
                         .size(34.dp)
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(NasSpacing.lg))
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (!message.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(NasSpacing.sm))
                 Text(
                     message,
                     style = MaterialTheme.typography.bodyMedium,
@@ -164,11 +175,73 @@ fun NasEmptyState(
                 )
             }
             if (action != null) {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(NasSpacing.lg))
                 action()
             }
         }
     }
+}
+
+@Composable
+fun NasErrorState(
+    title: String,
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Default.Error
+) {
+    NasEmptyState(
+        icon = icon,
+        title = title,
+        message = message,
+        modifier = modifier,
+        action = {
+            Button(onClick = onRetry) {
+                Text("重试")
+            }
+        }
+    )
+}
+
+@Composable
+fun NasConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = Icons.Default.Warning,
+    confirmIsDestructive: Boolean = true
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        icon = icon?.let { imageVector ->
+            { Icon(imageVector, contentDescription = null) }
+        },
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = if (confirmIsDestructive) {
+                    ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    ButtonDefaults.textButtonColors()
+                }
+            ) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 @Composable
@@ -221,30 +294,23 @@ fun NasIconContainer(
 @Composable
 fun NasStatusBadge(
     text: String,
-    positive: Boolean,
+    tone: NasStatusTone,
     modifier: Modifier = Modifier
 ) {
-    val container = if (positive) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.errorContainer
-    }
-    val content = if (positive) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onErrorContainer
-    }
+    val colors = nasStatusColors(tone)
     val motionEnabled = rememberNasMotionEnabled()
 
     Surface(
         modifier = modifier.nasAnimateContentSize(motionEnabled),
-        shape = RoundedCornerShape(8.dp),
-        color = container,
-        contentColor = content
+        shape = NasShape.Badge,
+        color = colors.container.copy(alpha = 0.76f),
+        contentColor = colors.content,
+        border = BorderStroke(1.dp, colors.content.copy(alpha = 0.16f)),
+        shadowElevation = NasElevation.flat
     ) {
         Text(
             text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = NasSpacing.sm, vertical = NasSpacing.xs),
             style = MaterialTheme.typography.labelMedium
         )
     }

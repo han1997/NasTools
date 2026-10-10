@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
-- **Last Active**: 2026-08-16
+- **Total Sessions**: 14
+- **Last Active**: 2026-10-02
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~380 | Active |
+| `journal-1.md` | ~481 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,9 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-10-02 | 统一页面状态反馈与危险操作确认 | `bd9a371`, `6f1a9a5` | `fix/ui-state-consistency` |
+| 13 | 2026-10-01 | Upload skip visibility & feature-optimization task tree | `f0f44d8` | `main` |
+| 12 | 2026-10-01 | Design token migration & task status color fix | `513fe41` | `main` |
 | 11 | 2026-08-16 | Modern card style UI overhaul | `5841fef` | `main` |
 | 10 | 2026-06-20 | Code review hardening | `4ea6063`, `aba94fb`, `8dad2c3` | `main` |
 | 9 | 2026-06-19 | NAS media online browsing | `d16158b`, `1ea9544` | `main` |

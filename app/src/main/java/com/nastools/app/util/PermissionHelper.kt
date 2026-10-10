@@ -40,7 +40,11 @@ object PermissionHelper {
     }
 
     fun isIgnoringBatteryOptimization(context: Context): Boolean {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        // 安全转换：Compose 预览等场景下 context 不是 Android runtime context，
+        // POWER_SERVICE 可能取不到，硬转换会抛 ClassCastException。
+        // 真机上该服务必然存在，故返回值不受影响。
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            ?: return false
         return powerManager.isIgnoringBatteryOptimizations(context.packageName)
     }
 }

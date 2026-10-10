@@ -10,11 +10,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.presentation.components.*
+import com.nastools.app.presentation.theme.NasShape
+import com.nastools.app.presentation.theme.NasSpacing
+import com.nastools.app.presentation.theme.NasToolsTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -26,10 +30,21 @@ fun TaskDetailScreen(
     onDeleted: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val feedback by viewModel.feedback.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val motionEnabled = rememberNasMotionEnabled()
 
+    LaunchedEffect(feedback.errorMessage ?: feedback.message) {
+        val message = feedback.errorMessage ?: feedback.message
+        if (!message.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearFeedback()
+        }
+    }
+
     NasScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             NasTopAppBar(
                 title = "任务详情",
@@ -57,10 +72,11 @@ fun TaskDetailScreen(
                 }
             }
             is TaskDetailUiState.Error -> {
-                NasEmptyState(
+                NasErrorState(
                     icon = Icons.Default.Error,
                     title = "加载失败",
                     message = state.message,
+                    onRetry = viewModel::reload,
                     modifier = Modifier.padding(padding)
                 )
             }
@@ -72,7 +88,7 @@ fun TaskDetailScreen(
                     sourceDeleted = state.sourceDeleted,
                     motionEnabled = motionEnabled,
                     onDelete = { showDeleteDialog = true },
-                    onRetry = { viewModel.retryTask(); onBack() },
+                    onRetry = { viewModel.retryTask(onRetried = onBack) },
                     modifier = Modifier.padding(padding)
                 )
             }
@@ -80,27 +96,16 @@ fun TaskDetailScreen(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            icon = { Icon(Icons.Default.Delete, null) },
-            title = { Text("删除任务") },
-            text = { Text("确定要删除这个任务吗？此操作无法撤销。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteTask()
-                        showDeleteDialog = false
-                        onDeleted()
-                    }
-                ) {
-                    Text("删除")
-                }
+        NasConfirmDialog(
+            title = "删除任务",
+            message = "确定要删除这个任务吗？此操作无法撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.deleteTask(onDeleted)
+                showDeleteDialog = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
-            }
+            onDismiss = { showDeleteDialog = false },
+            icon = Icons.Default.Delete
         )
     }
 }
@@ -118,8 +123,8 @@ private fun TaskDetailContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(NasSpacing.lg),
+        verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
     ) {
         // Basic info card
         item {
@@ -127,11 +132,11 @@ private fun TaskDetailContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .nasAnimateContentSize(motionEnabled),
-                shape = NasCardShape,
+                shape = NasShape.Card,
                 colors = nasCardColors(),
                 elevation = nasCardElevation()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(NasSpacing.lg)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "基本信息",
@@ -140,12 +145,12 @@ private fun TaskDetailContent(
                         )
                         NasStatusBadge(
                             text = task.status.statusLabel(),
-                            positive = task.status !in setOf("failed", "cancelled")
+                            tone = task.status.statusTone()
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(NasSpacing.md))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(NasSpacing.md))
 
                     InfoRow("任务 ID", task.id)
                     InfoRow("NAS 配置", configName ?: "未知")
@@ -165,13 +170,13 @@ private fun TaskDetailContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .nasAnimateContentSize(motionEnabled),
-                    shape = NasCardShape,
+                    shape = NasShape.Card,
                     colors = nasCardColors(),
                     elevation = nasCardElevation()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(NasSpacing.lg)) {
                         Text("上传进度", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(NasSpacing.md))
 
                         val progress = remember(task.progressBytes, task.totalBytes) {
                             task.progressFraction()
@@ -186,7 +191,7 @@ private fun TaskDetailContent(
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(NasSpacing.sm))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -214,14 +219,14 @@ private fun TaskDetailContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .nasAnimateContentSize(motionEnabled),
-                    shape = NasCardShape,
+                    shape = NasShape.Card,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                     ),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
                     elevation = nasCardElevation()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(NasSpacing.lg)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Default.Warning,
@@ -229,14 +234,14 @@ private fun TaskDetailContent(
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(NasSpacing.sm))
                             Text(
                                 if (task.status == "failed") "错误信息" else "警告信息",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(NasSpacing.sm))
                         Text(
                             task.errorMessage,
                             style = MaterialTheme.typography.bodyMedium,
@@ -253,13 +258,13 @@ private fun TaskDetailContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .nasAnimateContentSize(motionEnabled),
-                shape = NasCardShape,
+                shape = NasShape.Card,
                 colors = nasCardColors(),
                 elevation = nasCardElevation()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(NasSpacing.lg)) {
                     Text("文件列表", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(NasSpacing.md))
 
                     if (sourceDeleted) {
                         Row(
@@ -272,7 +277,7 @@ private fun TaskDetailContent(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(NasSpacing.sm))
                             Text(
                                 "文件已删除，无法查看详情",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -287,7 +292,7 @@ private fun TaskDetailContent(
                         )
                     } else {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(NasSpacing.sm))
                         files.forEach { file ->
                             FileItemRow(file)
                         }
@@ -300,7 +305,7 @@ private fun TaskDetailContent(
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(NasSpacing.md)
             ) {
                 if (task.status in setOf("failed", "cancelled")) {
                     Button(
@@ -308,7 +313,7 @@ private fun TaskDetailContent(
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(NasSpacing.sm))
                         Text("重试")
                     }
                 }
@@ -322,7 +327,7 @@ private fun TaskDetailContent(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(NasSpacing.sm))
                     Text("删除")
                 }
             }
@@ -335,7 +340,7 @@ private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = NasSpacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -356,7 +361,7 @@ private fun FileItemRow(file: FileItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp, horizontal = (file.depth * 16).dp),
+            .padding(vertical = NasSpacing.xs, horizontal = NasSpacing.lg * file.depth),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -369,7 +374,7 @@ private fun FileItemRow(file: FileItem) {
                 MaterialTheme.colorScheme.onSurfaceVariant
             }
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(NasSpacing.sm))
         Text(
             file.name,
             modifier = Modifier.weight(1f),
@@ -391,18 +396,6 @@ private fun TaskEntity.progressFraction(): Float {
     return (progressBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
 }
 
-private fun String.statusLabel(): String {
-    return when (this) {
-        "waiting" -> "等待"
-        "running" -> "运行中"
-        "paused" -> "已暂停"
-        "completed" -> "完成"
-        "failed" -> "失败"
-        "cancelled" -> "已取消"
-        else -> this
-    }
-}
-
 private fun Long.formatTimestamp(): String {
     val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     return formatter.format(Date(this))
@@ -414,5 +407,48 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 * 1024 -> "${bytes / 1024}KB"
         bytes < 1024 * 1024 * 1024 -> "${bytes / 1024 / 1024}MB"
         else -> "${bytes / 1024 / 1024 / 1024}GB"
+    }
+}
+
+// ---------------------------------------------------------------------------
+// @Preview：渲染无状态的 TaskDetailContent，不依赖 ViewModel（AC15）。
+// ---------------------------------------------------------------------------
+
+@Preview(name = "任务详情 · 浅色", showBackground = true)
+@Composable
+private fun TaskDetailLightPreview() {
+    NasToolsTheme(darkTheme = false) { TaskDetailPreviewContent() }
+}
+
+@Preview(name = "任务详情 · 深色", showBackground = true, backgroundColor = 0xFF101413)
+@Composable
+private fun TaskDetailDarkPreview() {
+    NasToolsTheme(darkTheme = true) { TaskDetailPreviewContent() }
+}
+
+@Composable
+private fun TaskDetailPreviewContent() {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        TaskDetailContent(
+            task = TaskEntity(
+                id = "preview",
+                moduleId = "preview",
+                type = "upload",
+                status = "paused",
+                progressBytes = 512L * 1024 * 1024,
+                totalBytes = 1024L * 1024 * 1024,
+                title = "示例上传任务",
+                payloadJson = "{}"
+            ),
+            configName = "家庭 NAS",
+            files = listOf(
+                FileItem(name = "照片", sizeBytes = 0, isDirectory = true, depth = 0),
+                FileItem(name = "IMG_0001.jpg", sizeBytes = 1024L * 512, isDirectory = false, depth = 1)
+            ),
+            sourceDeleted = false,
+            motionEnabled = false,
+            onDelete = {},
+            onRetry = {}
+        )
     }
 }

@@ -278,6 +278,7 @@ Hardened upload progress/error handling, added safer destructive-action confirma
 - None - task complete
 
 
+
 ## Session 9: NAS media online browsing
 
 **Date**: 2026-06-19
@@ -366,6 +367,106 @@ Migrated entire app UI from MD3 style to modern card style: removed gradient bac
 | Hash | Message |
 |------|---------|
 | `5841fef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 12: Design token migration & task status color fix
+
+**Date**: 2026-10-01
+**Task**: Design token migration & task status color fix
+**Branch**: `main`
+
+### Summary
+
+把零消费的设计 token 接入 9 个页面；修复 waiting/paused/completed 三态同绿的缺陷（NasStatusBadge 的 positive:Boolean 改为五档 NasStatusTone）；深色模式由死代码变为跟随系统；新增 14 个 @Preview 与 TaskStatusUiTest；CHANGELOG 归档 Flutter 遗留段并从 0.2.0 起记；新增 release 签名配置与版本号追加规则
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `513fe41` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 13: Upload skip visibility & feature-optimization task tree
+
+**Date**: 2026-10-01
+**Task**: Upload skip visibility & feature-optimization task tree
+**Branch**: `main`
+
+### Summary
+
+查清同名文件处理真相：默认是 resume_or_overwrite（按远端大小判断），不是无脑跳过；真缺陷是跳过完全静默（UploadExecutor.kt:394-397）。新增 SkipLog 聚合器把跳过汇总为可见警告，并修复同类问题（filterRegex 静默跳过）。默认策略与 prepareFileTarget 决策逻辑刻意未动。新建父任务 10-01-experience-feature-optimization 与 7 个子任务构成优化任务树，本轮完成子任务 1。顺带发现：上传跳过提示的旧警告因 completedBytes 语义而不可达；NasConfigEntity.password 列名 passwordEncrypted 但实际明文存储。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f0f44d8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 14: 统一页面状态反馈与危险操作确认
+
+**Date**: 2026-10-02
+**Task**: 统一页面状态反馈与危险操作确认
+**Branch**: `fix/ui-state-consistency`
+
+### Summary
+
+完成 ui-state-consistency：新增可重试 NasErrorState 和共享 NasConfirmDialog；Home、Tasks、Browser、连接配置、预设编辑、任务详情区分页面加载错误与一次性 Snackbar；Browser 刷新失败保留旧列表；任务暂停/恢复/取消/重试/删除失败可见，取消任务纳入二次确认；补充预览、浏览器状态单测、state-feedback 前端规范，版本升至 0.2.2 并更新 README/CHANGELOG。验证通过 testDebugUnitTest、assembleDebug、assembleRelease、lintDebug，release 使用 apksigner v2 验签；无 adb/模拟器，视觉手工验收待设备执行。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bd9a371` | (see git log) |
+| `6f1a9a5` | (see git log) |
 
 ### Testing
 
