@@ -2,10 +2,16 @@ package com.nastools.app.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Primary = Color(0xFF286F62)
-val OnPrimary = Color(0xFFF4FFFB)
-val PrimaryContainer = Color(0xFFD2EDE6)
-val OnPrimaryContainer = Color(0xFF08332C)
+// ---------------------------------------------------------------------------
+// Concept 01 调色板（prototypes/nastools-ui v1.1，用户已确认）。
+// 松绿 / 雾白 / 石墨。Secondary / Tertiary / Outline 未在原型中定义，
+// 保留迁移前取值（值为现状，非重新设计）；页面迁移时如需调整再走确认流程。
+// ---------------------------------------------------------------------------
+
+val Primary = Color(0xFF245C48)
+val OnPrimary = Color(0xFFFFFFFF)
+val PrimaryContainer = Color(0xFFE3EEE4)
+val OnPrimaryContainer = Color(0xFF213A2B)
 
 val Secondary = Color(0xFF9B5E1A)
 val OnSecondary = Color(0xFFFFF8EF)
@@ -17,25 +23,25 @@ val OnTertiary = Color(0xFFFAF7FF)
 val TertiaryContainer = Color(0xFFE7DFFF)
 val OnTertiaryContainer = Color(0xFF271D50)
 
-val Error = Color(0xFFB3261E)
-val OnError = Color(0xFFFFF8F6)
-val ErrorContainer = Color(0xFFFFDAD6)
-val OnErrorContainer = Color(0xFF410002)
+val Error = Color(0xFFAC3C36)
+val OnError = Color(0xFFFFFFFF)
+val ErrorContainer = Color(0xFFFBE9E6)
+val OnErrorContainer = Color(0xFF5C1F1B)
 
-val Background = Color(0xFFF3FAF7)
-val Surface = Color(0xFFFAFEFC)
-val OnSurface = Color(0xFF17211E)
-val SurfaceVariant = Color(0xFFE2EFEB)
-val OnSurfaceVariant = Color(0xFF53635E)
+val Background = Color(0xFFF7F8F5)
+val Surface = Color(0xFFFFFFFF)
+val OnSurface = Color(0xFF242D29)
+val SurfaceVariant = Color(0xFFEEF1EB)
+val OnSurfaceVariant = Color(0xFF657069)
 
 val Outline = Color(0xFF70827C)
-val OutlineVariant = Color(0xFFC7D8D2)
+val OutlineVariant = Color(0xFFE2E7DF)
 
 // Dark colors
-val DarkPrimary = Color(0xFF9AD9CA)
-val DarkOnPrimary = Color(0xFF0D241F)
-val DarkPrimaryContainer = Color(0xFF244B43)
-val DarkOnPrimaryContainer = Color(0xFFE3F7F2)
+val DarkPrimary = Color(0xFFAFD0B1)
+val DarkOnPrimary = Color(0xFF213A2B)
+val DarkPrimaryContainer = Color(0xFF344C3B)
+val DarkOnPrimaryContainer = Color(0xFFAFD0B1)
 
 val DarkSecondary = Color(0xFFE7B77D)
 val DarkOnSecondary = Color(0xFF2B1905)
@@ -47,19 +53,19 @@ val DarkOnTertiary = Color(0xFF211842)
 val DarkTertiaryContainer = Color(0xFF463E74)
 val DarkOnTertiaryContainer = Color(0xFFE9E3FF)
 
-val DarkError = Color(0xFFFFB4AB)
-val DarkOnError = Color(0xFF690005)
-val DarkErrorContainer = Color(0xFF93000A)
-val DarkOnErrorContainer = Color(0xFFFFDAD4)
+val DarkError = Color(0xFFF4ACA6)
+val DarkOnError = Color(0xFF49302E)
+val DarkErrorContainer = Color(0xFF49302E)
+val DarkOnErrorContainer = Color(0xFFF4ACA6)
 
-val DarkBackground = Color(0xFF121817)
-val DarkSurface = Color(0xFF1B2320)
-val DarkOnSurface = Color(0xFFE7F0EC)
-val DarkSurfaceVariant = Color(0xFF2D3935)
-val DarkOnSurfaceVariant = Color(0xFFBECBC6)
+val DarkBackground = Color(0xFF202925)
+val DarkSurface = Color(0xFF29342E)
+val DarkOnSurface = Color(0xFFEDF1E9)
+val DarkSurfaceVariant = Color(0xFF313D35)
+val DarkOnSurfaceVariant = Color(0xFFABB8AD)
 
 val DarkOutline = Color(0xFF889A94)
-val DarkOutlineVariant = Color(0xFF3E4D48)
+val DarkOutlineVariant = Color(0xFF3D4A41)
 
 // ---------------------------------------------------------------------------
 // 语义状态色。
@@ -68,30 +74,39 @@ val DarkOutlineVariant = Color(0xFF3E4D48)
 // `NasStatusBadge(text, positive: Boolean)` 只有两个分支，导致
 // 「等待中」和「已暂停」被渲染成和「已完成」完全一样的绿色。
 //
-// Progress（运行中）和 Danger（失败）直接复用 M3 的 primary/error 角色，
-// 不在这里重复定义。
+// Concept 01 起五个 tone 全部使用专用语义色（原型 --blue/--amber/--red
+// 与中性 --soft）：Progress 用独立蓝色，与成功绿明确区分；
+// Danger 不再复用 M3 error 角色，避免与删除按钮语义混淆。
 // ---------------------------------------------------------------------------
 
-val StatusNeutralContainer = Color(0xFFE7EBEA)
-val StatusNeutralContent = Color(0xFF44534F)
-val StatusNeutralAccent = Color(0xFF70827C)
+val StatusNeutralContainer = Color(0xFFEEF1EB)
+val StatusNeutralContent = Color(0xFF657069)
+val StatusNeutralAccent = Color(0xFF657069)
 
-val StatusSuccessContainer = Color(0xFFD7EFD9)
-val StatusSuccessContent = Color(0xFF10421A)
-val StatusSuccessAccent = Color(0xFF2E7D32)
+val StatusProgressContainer = Color(0xFFE8EEF9)
+val StatusProgressContent = Color(0xFF315E95)
+val StatusProgressAccent = Color(0xFF315E95)
 
-val StatusWarningContainer = Color(0xFFFFEFD0)
-val StatusWarningContent = Color(0xFF4A3208)
-val StatusWarningAccent = Color(0xFFB07400)
+val StatusSuccessContainer = Color(0xFFE3EEE4)
+val StatusSuccessContent = Color(0xFF213A2B)
+val StatusSuccessAccent = Color(0xFF245C48)
 
-val DarkStatusNeutralContainer = Color(0xFF2D3935)
-val DarkStatusNeutralContent = Color(0xFFBECBC6)
-val DarkStatusNeutralAccent = Color(0xFF889A94)
+val StatusWarningContainer = Color(0xFFFBEFD9)
+val StatusWarningContent = Color(0xFF875316)
+val StatusWarningAccent = Color(0xFF875316)
 
-val DarkStatusSuccessContainer = Color(0xFF1E3A24)
-val DarkStatusSuccessContent = Color(0xFFB7E4BC)
-val DarkStatusSuccessAccent = Color(0xFF7FD08A)
+val DarkStatusNeutralContainer = Color(0xFF313D35)
+val DarkStatusNeutralContent = Color(0xFFABB8AD)
+val DarkStatusNeutralAccent = Color(0xFFABB8AD)
 
-val DarkStatusWarningContainer = Color(0xFF4A3A17)
-val DarkStatusWarningContent = Color(0xFFF2DCAE)
-val DarkStatusWarningAccent = Color(0xFFE7B77D)
+val DarkStatusProgressContainer = Color(0xFF2C3B4B)
+val DarkStatusProgressContent = Color(0xFFB0C8EB)
+val DarkStatusProgressAccent = Color(0xFFB0C8EB)
+
+val DarkStatusSuccessContainer = Color(0xFF344C3B)
+val DarkStatusSuccessContent = Color(0xFFAFD0B1)
+val DarkStatusSuccessAccent = Color(0xFFAFD0B1)
+
+val DarkStatusWarningContainer = Color(0xFF483B26)
+val DarkStatusWarningContent = Color(0xFFEFD094)
+val DarkStatusWarningAccent = Color(0xFFEFD094)

@@ -3,10 +3,11 @@ package com.nastools.app.presentation.theme
 import androidx.compose.ui.unit.dp
 
 /**
- * 高度 token。
+ * 高度 token（Concept 01，用户已确认）。
  *
- * 卡片走 [flat] + 1dp 描边而不是阴影：深色模式下阴影几乎不可见，
+ * 卡片走 [flat] + 1dp 描边（outlineVariant）而不是阴影：深色模式下阴影几乎不可见，
  * 描边才是跨主题都成立的层次手段，也让明暗两套结构完全一致。
+ * 原型 v1.1 确认了同一原则（卡片无阴影、1px 边框）。
  */
 object NasElevation {
     /** 卡片/徽章：靠 1dp 描边建立层次 */

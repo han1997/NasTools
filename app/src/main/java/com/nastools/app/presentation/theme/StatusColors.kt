@@ -1,6 +1,5 @@
 package com.nastools.app.presentation.theme
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -33,7 +32,6 @@ val LocalNasDarkTheme = staticCompositionLocalOf { false }
 @Composable
 fun nasStatusColors(tone: NasStatusTone): NasStatusColors {
     val dark = LocalNasDarkTheme.current
-    val scheme = MaterialTheme.colorScheme
 
     return when (tone) {
         NasStatusTone.Neutral -> if (dark) {
@@ -42,11 +40,13 @@ fun nasStatusColors(tone: NasStatusTone): NasStatusColors {
             NasStatusColors(StatusNeutralContainer, StatusNeutralContent, StatusNeutralAccent)
         }
 
-        NasStatusTone.Progress -> NasStatusColors(
-            container = scheme.primaryContainer,
-            content = scheme.onPrimaryContainer,
-            accent = scheme.primary
-        )
+        // Concept 01：运行中用独立蓝色（原型 --blue），与成功绿明确区分；
+        // 不再复用 M3 primary，避免与品牌绿混淆。
+        NasStatusTone.Progress -> if (dark) {
+            NasStatusColors(DarkStatusProgressContainer, DarkStatusProgressContent, DarkStatusProgressAccent)
+        } else {
+            NasStatusColors(StatusProgressContainer, StatusProgressContent, StatusProgressAccent)
+        }
 
         NasStatusTone.Success -> if (dark) {
             NasStatusColors(DarkStatusSuccessContainer, DarkStatusSuccessContent, DarkStatusSuccessAccent)
@@ -60,10 +60,12 @@ fun nasStatusColors(tone: NasStatusTone): NasStatusColors {
             NasStatusColors(StatusWarningContainer, StatusWarningContent, StatusWarningAccent)
         }
 
-        NasStatusTone.Danger -> NasStatusColors(
-            container = scheme.errorContainer,
-            content = scheme.onErrorContainer,
-            accent = scheme.error
-        )
+        // Concept 01：失败用专用语义红（原型 --red），不再复用 M3 error 角色，
+        // 避免与删除按钮等破坏性操作语义混淆。
+        NasStatusTone.Danger -> if (dark) {
+            NasStatusColors(DarkErrorContainer, DarkOnErrorContainer, DarkError)
+        } else {
+            NasStatusColors(ErrorContainer, OnErrorContainer, Error)
+        }
     }
 }

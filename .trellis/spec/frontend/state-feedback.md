@@ -2,6 +2,8 @@
 
 本文记录 Compose 页面在加载失败、操作失败和危险操作场景下的实际反馈契约。适用于 `presentation/**` 页面与对应 ViewModel。
 
+UI 外观与交互变更必须遵守 [原型优先契约](./prototype-first.md)。原型遗漏本文件约定的错误/确认状态时，先补原型并确认，不得删除已有保护。演示中的假成功、假权限、模拟刷新错误不能替代真实状态；真实业务影响（例如删除连接级联删除预设）必须同步反映在原型文案。
+
 ## 状态通道
 
 页面必须把两类状态分开：
@@ -34,9 +36,13 @@ fun NasConfirmDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = Icons.Default.Warning,
-    confirmIsDestructive: Boolean = true
+    confirmIsDestructive: Boolean = true,
+    dismissText: String = "取消"
 )
 ```
+
+`dismissText` 用于非默认取消语义的确认（如未保存保护的「继续编辑」）；
+默认值保持既有调用方不变。
 
 `NasErrorState` 复用 `NasEmptyState` 的布局和设计 token，通过“重试”按钮提供恢复动作。`NasConfirmDialog` 不持有业务状态；调用方负责清除 pending 对象，保证确认回调只执行一次。
 

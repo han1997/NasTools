@@ -2,7 +2,9 @@
 
 本文档定义本项目的设计 token 体系及其使用契约。所有 Compose UI 代码在写样式前应先读本文。
 
-来源：任务 `10-01-design-token-migration`。相关：`./compose-optimization.md`（remember 依赖键）。
+来源：任务 `10-01-design-token-migration`。相关：`./compose-optimization.md`（remember 依赖键）、[原型优先契约](./prototype-first.md)。
+
+**Concept 01 迁移说明**：用户已确认 `prototypes/nastools-ui/` 为新视觉基准。**主题层（Color/Shapes/Elevation/状态色）已于本次任务完成迁移**，下表为迁移后的现行值；页面布局迁移按实施计划分步进行。原型已确认的视觉角色须集中映射到既有 theme/组件，禁止在各页以裸值并存两套设计。调整 token 时同步修改表格、注释和所有调用方。
 
 ---
 
@@ -12,11 +14,11 @@
 
 | 家族 | 文件 | 成员 |
 |---|---|---|
-| 间距 | `Spacing.kt` | `NasSpacing.xxs/xs/sm/md/lg/xl/xxl` = 2/4/8/12/16/24/32dp；语义别名 `screenH` `listTop` `listBottom` `listBottomWithFab` `cardPadding` `sectionGap` `minTouchTarget`；`NasListPadding` / `NasListPaddingWithFab` |
-| 形状 | `Shapes.kt` | `NasShapes`（M3 阶梯，接入 `MaterialTheme.shapes`）；`NasShape.Card`(14dp) `NasShape.Field`(10dp) `NasShape.Badge`(CircleShape) |
-| 高度 | `Elevation.kt` | `NasElevation.flat`(0) `raised`(1) `resting`(2) `overlay`(6) `floating`(8) `lifted`(12) |
-| 状态色 | `StatusColors.kt` | `NasStatusTone` 枚举、`nasStatusColors(tone)`、`LocalNasDarkTheme` |
-| 颜色 | `Color.kt` | M3 角色色 + 语义状态色明暗各一套 |
+| 间距 | `Spacing.kt` | `NasSpacing.xxs/xs/sm/md/lg/xl/xxl` = 2/4/8/12/16/24/32dp；语义别名 `screenH` `listTop` `listBottom` `listBottomWithFab` `cardPadding` `sectionGap` `minTouchTarget`；`NasListPadding` / `NasListPaddingWithFab`。间距阶梯未变；页面级内边距（原型 22px 屏幕边距 ≈ `xl`）在各页迁移时对齐并记录 |
+| 形状 | `Shapes.kt` | `NasShapes`（M3 阶梯 6/10/14/18/24，接入 `MaterialTheme.shapes`，对话框走 extraLarge=24）；`NasShape.Card`(18dp) `NasShape.Field`(12dp) `NasShape.Badge`(6dp 圆角，非圆形) |
+| 高度 | `Elevation.kt` | `NasElevation.flat`(0) `raised`(1) `resting`(2) `overlay`(6) `floating`(8) `lifted`(12)。卡片一律 flat + 1dp 描边（`nasCardBorder()`），无阴影 |
+| 状态色 | `StatusColors.kt` | `NasStatusTone` 枚举、`nasStatusColors(tone)`、`LocalNasDarkTheme`。五档全部使用专用语义色：Progress 为独立蓝色（不再复用 primary），Danger 为专用红（不再复用 M3 error） |
+| 颜色 | `Color.kt` | M3 角色色 + 语义状态色明暗各一套。明：bg `#F7F8F5` surface `#FFFFFF` soft `#EEF1EB` text `#242D29` muted `#657069` accent `#245C48` onAccent `#FFFFFF` tint `#E3EEE4` line `#E2E7DF`；暗：bg `#202925` surface `#29342E` soft `#313D35` text `#EDF1E9` muted `#ABB8AD` accent `#AFD0B1` onAccent `#213A2B` tint `#344C3B` line `#3D4A41`。Secondary/Tertiary/Outline 未在原型中定义，保留迁移前值（值为现状，非重新设计） |
 
 ---
 
@@ -88,10 +90,10 @@ fun String.statusTone(): NasStatusTone
 | status | 标签 | tone | 理由 |
 |---|---|---|---|
 | `waiting` | 等待 | `Neutral` | 排队态；`resume()` 亦回落到此 |
-| `running` | 运行中 | `Progress` | 复用 M3 `primary` |
+| `running` | 运行中 | `Progress` | Concept 01 起为独立蓝色（`StatusProgress*`），与成功绿、品牌绿都不同 |
 | `paused` | 已暂停 | `Warning` | 唯一「不干预就不推进」的状态 |
 | `completed` | 完成 | `Success` | |
-| `failed` | 失败 | `Danger` | 复用 M3 `error` |
+| `failed` | 失败 | `Danger` | Concept 01 起为专用语义红（`Error*` 角色色），不再复用 M3 error 默认值 |
 | `cancelled` | 已取消 | `Neutral` | 用户主动终止的终态，非故障 |
 
 **已知取舍**：`waiting` 与 `cancelled` 同为中性色。二者处于生命周期两端且操作菜单不同，可接受。
@@ -122,8 +124,7 @@ NasStatusBadge(text = task.status.statusLabel(), tone = task.status.statusTone()
 ### 非任务状态的徽章
 
 `NasStatusBadge` 也被用于权限状态（设置页「已授权/未授权」「已忽略/优化中」）。
-这类调用**显式传 tone**，不走 `statusTone()`：已授权/已忽略 → `Success`，
-未授权/优化中 → `Danger`。勿把任务状态语义强加到权限语义上。
+这类调用**显式传 tone**，不走 `statusTone()`。Concept 01 起：已授权/已忽略 → `Success`（品牌绿），未授权/待设置 → `Warning`（琥珀）。勿把任务状态语义强加到权限语义上。
 
 ---
 
@@ -164,7 +165,9 @@ IDE 设置而非预览声明，会导致深色预览渲染成浅色。
 
 ## 契约 4：Token 值与现状值冲突时的裁决
 
-当 token 的既有值与代码现状不一致（例：`NasSpacing.listBottomWithFab` 为 88dp，
+先检查 [原型基准](./prototype-first.md)：若已确认的新原型与旧 token 冲突，**先集中更新 token 映射并验收，再让页面消费新值**，不能用旧 token 否定新设计或把新值散落在页面。尚未确认的原型差异不得用于改正式代码。
+
+没有新的已确认设计变更时，当 token 的既有值与代码现状不一致（例：`NasSpacing.listBottomWithFab` 为 88dp，
 而三处列表页实际写 `96.dp`），**一律以 token 值为准**，并在提交说明中记录该视觉变化。
 
 **为什么**：token 的值是按新设计意图算出来的（88 = SmallFAB 40 + 边距 16 + 呼吸 32），

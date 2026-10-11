@@ -3,12 +3,14 @@ package com.nastools.app.presentation.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -47,9 +50,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nastools.app.presentation.theme.NasElevation
@@ -65,6 +70,7 @@ val NasSmallShape = RoundedCornerShape(12.dp)
 fun NasScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
@@ -83,6 +89,7 @@ fun NasScaffold(
                 WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
             ),
             topBar = topBar,
+            bottomBar = bottomBar,
             snackbarHost = snackbarHost,
             floatingActionButton = floatingActionButton,
             content = content
@@ -98,11 +105,9 @@ fun NasTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
     Column(
         modifier = Modifier.background(Color.Transparent)
-    ) {
-        TopAppBar(
+    ) {        TopAppBar(
             title = {
                 Column {
                     Text(
@@ -131,7 +136,83 @@ fun NasTopAppBar(
                 actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
-        HorizontalDivider(color = outlineVariant)
+        // Concept 01：顶栏无分隔线，页面内容自带层次
+    }
+}
+
+/** 底部导航项：route 由导航层定义，组件不感知具体路由 */
+data class NasBottomNavItem(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+/**
+ * 底部导航栏（Concept 01）：仅出现在连接/文件/传输/设置四个主页面，
+ * 子页面不传 bottomBar 即自动隐藏。
+ */
+@Composable
+fun NasBottomBar(
+    items: List<NasBottomNavItem>,
+    currentRoute: String?,
+    modifier: Modifier = Modifier,
+    onSelect: (String) -> Unit
+) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(modifier = modifier.fillMaxWidth()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = NasSpacing.sm, vertical = NasSpacing.xs)
+            ) {
+                items.forEach { item ->
+                    val selected = item.route == currentRoute
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(NasShape.Field)
+                            .clickable(onClick = { onSelect(item.route) })
+                            .padding(vertical = NasSpacing.xs),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(NasShape.Field)
+                                .background(
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                                .padding(horizontal = NasSpacing.xl, vertical = NasSpacing.xs)
+                        ) {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                tint = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                        Text(
+                            item.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (selected) FontWeight.SemiBold else null
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -151,19 +232,13 @@ fun NasEmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Surface(
-                shape = NasSmallShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(18.dp)
-                        .size(34.dp)
-                )
-            }
+            // Concept 01：空态为裸图标（40dp，accent 色），无容器气泡
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
             Spacer(Modifier.height(NasSpacing.lg))
             Text(title, style = MaterialTheme.typography.titleMedium)
             if (!message.isNullOrBlank()) {
@@ -212,7 +287,8 @@ fun NasConfirmDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = Icons.Default.Warning,
-    confirmIsDestructive: Boolean = true
+    confirmIsDestructive: Boolean = true,
+    dismissText: String = "取消"
 ) {
     AlertDialog(
         modifier = modifier,
@@ -238,7 +314,7 @@ fun NasConfirmDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text(dismissText)
             }
         }
     )
@@ -254,12 +330,19 @@ fun nasCardColors(): CardColors {
 
 @Composable
 fun nasCardElevation(): CardElevation {
+    // Concept 01：卡片无阴影，层次由 1dp 描边（见 nasCardBorder）承担
     return CardDefaults.cardElevation(
-        defaultElevation = 2.dp,
-        pressedElevation = 4.dp,
-        focusedElevation = 3.dp,
-        hoveredElevation = 3.dp
+        defaultElevation = NasElevation.flat,
+        pressedElevation = NasElevation.flat,
+        focusedElevation = NasElevation.flat,
+        hoveredElevation = NasElevation.flat
     )
+}
+
+/** 卡片描边：Concept 01 的层次手段（1dp outlineVariant），页面迁移时逐页接入 */
+@Composable
+fun nasCardBorder(): BorderStroke {
+    return BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -303,10 +386,8 @@ fun NasStatusBadge(
     Surface(
         modifier = modifier.nasAnimateContentSize(motionEnabled),
         shape = NasShape.Badge,
-        color = colors.container.copy(alpha = 0.76f),
-        contentColor = colors.content,
-        border = BorderStroke(1.dp, colors.content.copy(alpha = 0.16f)),
-        shadowElevation = NasElevation.flat
+        color = colors.container,
+        contentColor = colors.content
     ) {
         Text(
             text,
