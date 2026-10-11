@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.TaskEntity
+import com.nastools.app.util.BytesFormat
 import com.nastools.app.presentation.components.*
 import com.nastools.app.presentation.theme.NasShape
 import com.nastools.app.presentation.theme.NasSpacing
@@ -98,7 +99,7 @@ fun TaskDetailScreen(
     if (showDeleteDialog) {
         NasConfirmDialog(
             title = "删除任务",
-            message = "确定要删除这个任务吗？此操作无法撤销。",
+            message = "只删除任务记录，不会删除 NAS 上的文件。此操作无法撤销。",
             confirmText = "删除",
             onConfirm = {
                 viewModel.deleteTask(onDeleted)
@@ -181,32 +182,59 @@ private fun TaskDetailContent(
                         val progress = remember(task.progressBytes, task.totalBytes) {
                             task.progressFraction()
                         }
-                        val progressMB = remember(task.progressBytes) { task.progressBytes / 1024 / 1024 }
-                        val totalMB = remember(task.totalBytes) { task.totalBytes / 1024 / 1024 }
-                        val progressPercent = remember(progress) { (progress * 100).toInt() }
+                        val knownTotal = task.totalBytes > 0
 
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(6.dp),
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-
-                        Spacer(Modifier.height(NasSpacing.sm))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        // 原型：大进度环；总量未知时显示不定进度 + 占位（R8 不编造指标）
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = NasSpacing.md),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                "${progressMB}MB / ${totalMB}MB",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                "${progressPercent}%",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            if (knownTotal) {
+                                CircularProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.size(120.dp),
+                                    strokeWidth = 8.dp,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "${(progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.headlineSmall
+                                    )
+                                    Text(
+                                        "${BytesFormat.human(task.progressBytes)} / ${BytesFormat.human(task.totalBytes)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(120.dp),
+                                    strokeWidth = 8.dp,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("—", style = MaterialTheme.typography.headlineSmall)
+                                    Text(
+                                        "进度未知",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
+                        Text(
+                            if (knownTotal) {
+                                "已上传 ${BytesFormat.human(task.progressBytes)}，共 ${BytesFormat.human(task.totalBytes)}"
+                            } else {
+                                "已上传 ${BytesFormat.human(task.progressBytes)} · 总计大小未知"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -221,9 +249,20 @@ private fun TaskDetailContent(
                         .nasAnimateContentSize(motionEnabled),
                     shape = NasShape.Card,
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        containerColor = if (task.status == "failed") {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        }
                     ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
+                    border = BorderStroke(
+                        1.dp,
+                        if (task.status == "failed") {
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        }
+                    ),
                     elevation = nasCardElevation()
                 ) {
                     Column(modifier = Modifier.padding(NasSpacing.lg)) {
@@ -231,14 +270,22 @@ private fun TaskDetailContent(
                             Icon(
                                 Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
+                                tint = if (task.status == "failed") {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                },
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(NasSpacing.sm))
                             Text(
                                 if (task.status == "failed") "错误信息" else "警告信息",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.error
+                                color = if (task.status == "failed") {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                }
                             )
                         }
                         Spacer(Modifier.height(NasSpacing.sm))

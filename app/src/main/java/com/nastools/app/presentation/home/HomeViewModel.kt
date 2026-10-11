@@ -6,6 +6,7 @@ import com.nastools.app.data.database.entity.NasConfigEntity
 import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.data.repository.NasConfigRepository
 import com.nastools.app.data.repository.TaskRepository
+import com.nastools.app.presentation.browser.FileTabSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,8 +32,14 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val configRepository: NasConfigRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val fileTabSession: FileTabSession
 ) : ViewModel() {
+
+    /** 首页卡片点击 = 明确选择连接，文件标签页据此恢复目录 */
+    fun selectConnection(configId: String) {
+        fileTabSession.select(configId)
+    }
 
     private val reloadRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 

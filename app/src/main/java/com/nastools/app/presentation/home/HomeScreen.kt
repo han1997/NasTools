@@ -15,6 +15,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -24,19 +27,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.NasConfigEntity
+import com.nastools.app.data.database.entity.TaskEntity
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
-import com.nastools.app.presentation.components.NasMiniFab
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.nasCardColors
+import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
 import com.nastools.app.presentation.theme.NasElevation
-import com.nastools.app.presentation.theme.NasListPaddingWithFab
+import com.nastools.app.presentation.theme.NasListPadding
 import com.nastools.app.presentation.theme.NasShape
 import com.nastools.app.presentation.theme.NasSpacing
 import com.nastools.app.presentation.theme.NasToolsTheme
@@ -47,34 +51,27 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToConfig: (String) -> Unit = {},
     onNavigateToNewConfig: () -> Unit = {},
-    onNavigateToBrowser: (String) -> Unit = {},
-    onNavigateToTasks: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    onNavigateToPresets: () -> Unit = {}
+    onOpenFiles: () -> Unit = {},
+    onOpenTasks: () -> Unit = {},
+    onOpenTaskDetail: (String) -> Unit = {},
+    onNavigateToPresets: () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val motionEnabled = rememberNasMotionEnabled()
 
     NasScaffold(
+        bottomBar = bottomBar,
         topBar = {
             NasTopAppBar(
                 title = "NasTools",
-                subtitle = "连接、浏览和上传 NAS 文件",
+                subtitle = "你的私人文件空间",
                 actions = {
-                    IconButton(onClick = onNavigateToPresets) {
-                        Icon(Icons.Default.Bookmark, "预设")
-                    }
-                    IconButton(onClick = onNavigateToTasks) {
-                        Icon(Icons.Default.Task, "任务")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, "设置")
+                    IconButton(onClick = onNavigateToNewConfig) {
+                        Icon(Icons.Default.Add, "新建连接")
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            NasMiniFab(onClick = onNavigateToNewConfig, icon = Icons.Default.Add, contentDescription = "新建连接")
         }
     ) { padding ->
         Column(
@@ -83,10 +80,23 @@ fun HomeScreen(
                 .fillMaxSize()
                 .nasAnimateContentSize(motionEnabled)
         ) {
+            Text(
+                "一切，都在这里。",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(top = NasSpacing.xs)
+            )
+            Text(
+                "连接你的 NAS，随时接着上一次。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = NasSpacing.xxs, bottom = NasSpacing.lg)
+            )
+
             if (uiState.activeTasks.isNotEmpty()) {
                 ActiveTaskBanner(
+                    task = uiState.activeTasks.first(),
                     count = uiState.activeTasks.size,
-                    onClick = onNavigateToTasks
+                    onClick = { onOpenTaskDetail(uiState.activeTasks.first().id) }
                 )
             }
 
@@ -109,7 +119,10 @@ fun HomeScreen(
                     ConfigList(
                         motionEnabled = motionEnabled,
                         configs = uiState.configs,
-                        onConfigClick = onNavigateToBrowser,
+                        onConfigClick = { configId ->
+                            viewModel.selectConnection(configId)
+                            onOpenFiles()
+                        },
                         onManageClick = onNavigateToConfig,
                         onCreateClick = onNavigateToNewConfig
                     )
@@ -120,59 +133,85 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ActiveTaskBanner(count: Int, onClick: () -> Unit) {
-    val motionEnabled = rememberNasMotionEnabled()
-    val pulseScale = if (motionEnabled) {
-        val transition = rememberInfiniteTransition(label = "activeTaskPulse")
-        val value by transition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.06f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 900, easing = NasMotion.EaseOut),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "activeTaskPulseScale"
-        )
-        value
-    } else {
-        1f
-    }
-
+private fun ActiveTaskBanner(
+    task: TaskEntity,
+    count: Int,
+    onClick: () -> Unit
+) {
+    // 原型：accent 绿横幅；进度与字节数来自真实任务数据，未知总量显示已传大小
     Surface(
         modifier = Modifier
-            .padding(horizontal = NasSpacing.lg, vertical = NasSpacing.md)
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable(onClick = onClick),
         shape = NasShape.Card,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shadowElevation = NasElevation.raised
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = NasSpacing.md, vertical = NasSpacing.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            NasIconContainer(
-                Icons.Default.Sync,
-                null,
-                modifier = Modifier.graphicsLayer {
-                    scaleX = pulseScale
-                    scaleY = pulseScale
-                },
-                selected = true
-            )
-            Spacer(Modifier.width(NasSpacing.md))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("上传进行中", style = MaterialTheme.typography.titleSmall)
+        Column(modifier = Modifier.padding(NasSpacing.lg)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "$count 个任务正在处理",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
+                    if (count > 1) "$count 个任务进行中" else "1 个任务进行中",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(Icons.Default.ChevronRight, contentDescription = "查看任务详情")
+            }
+            Text(
+                task.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = NasSpacing.xs, bottom = NasSpacing.sm)
+            )
+            val progress = remember(task.progressBytes, task.totalBytes) {
+                if (task.totalBytes > 0) {
+                    (task.progressBytes.toFloat() / task.totalBytes).coerceIn(0f, 1f)
+                } else null
+            }
+            if (progress != null) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = NasSpacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        formatBytes(task.progressBytes, task.totalBytes),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        "${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            } else {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f)
+                )
+                Text(
+                    "${formatBytes(task.progressBytes, null)} 已上传 · 总计大小未知",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = NasSpacing.xs)
                 )
             }
-            Icon(Icons.Default.ChevronRight, null)
         }
     }
+}
+
+private fun formatBytes(bytes: Long, total: Long?): String {
+    fun fmt(b: Long): String = when {
+        b >= 1_000_000_000 -> String.format("%.2f GB", b / 1_000_000_000.0)
+        b >= 1_000_000 -> String.format("%.1f MB", b / 1_000_000.0)
+        b >= 1_000 -> String.format("%.0f KB", b / 1_000.0)
+        else -> "$b B"
+    }
+    return if (total != null && total > 0) "${fmt(bytes)} / ${fmt(total)}" else fmt(bytes)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -202,7 +241,7 @@ private fun ConfigList(
     } else {
         LazyColumn(
             modifier = modifier.fillMaxSize(),
-            contentPadding = NasListPaddingWithFab,
+            contentPadding = NasListPadding,
             verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
         ) {
             item {
@@ -246,43 +285,107 @@ private fun ConfigCard(
     onClick: () -> Unit,
     onManageClick: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
         modifier = modifier,
         shape = NasShape.Card,
         colors = nasCardColors(),
-        elevation = nasCardElevation()
+        elevation = nasCardElevation(),
+        border = nasCardBorder()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(NasSpacing.lg),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            NasIconContainer(Icons.Default.Storage, null, selected = true)
-            Spacer(Modifier.width(NasSpacing.md))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(config.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(NasSpacing.xxs))
-                Text(
-                    config.baseUrl,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (!config.defaultRemotePath.isNullOrBlank() && config.defaultRemotePath != "/") {
-                    Spacer(Modifier.height(NasSpacing.xxs))
+        Column(modifier = Modifier.padding(NasSpacing.lg)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NasIconContainer(Icons.Default.Storage, null)
+                Spacer(Modifier.width(NasSpacing.md))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(config.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text(
-                        "默认目录 ${config.defaultRemotePath}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                        hostOf(config.baseUrl),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "管理连接")
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("编辑连接") },
+                            onClick = {
+                                showMenu = false
+                                onManageClick()
+                            }
+                        )
+                    }
+                }
             }
-            IconButton(onClick = onManageClick) {
-                Icon(Icons.Default.Edit, "编辑连接")
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = NasSpacing.md),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "已配置认证",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onClick) {
+                    Text("浏览文件")
+                    Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+                }
             }
+        }
+    }
+}
+
+private fun hostOf(baseUrl: String): String =
+    android.net.Uri.parse(baseUrl).host ?: baseUrl
+
+@Composable
+private fun PresetShortcut(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = NasShape.Field,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NasIconContainer(Icons.Default.Bookmark, null, modifier = Modifier, selected = false)
+            Spacer(Modifier.width(NasSpacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("上传预设", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "照片备份、工作归档，一次设置",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "打开上传预设",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -291,7 +394,7 @@ private fun ConfigCard(
 private fun LoadingSkeleton(modifier: Modifier = Modifier) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = NasListPaddingWithFab,
+        contentPadding = NasListPadding,
         verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
     ) {
         item {
@@ -379,7 +482,21 @@ private fun HomePreviewContent() {
             modifier = Modifier.padding(NasSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
         ) {
-            ActiveTaskBanner(count = 2, onClick = {})
+            ActiveTaskBanner(
+                task = TaskEntity(
+                    id = "preview-task",
+                    moduleId = "upload",
+                    type = "file",
+                    nasConfigId = "preview",
+                    status = "running",
+                    progressBytes = 1_750_000_000,
+                    totalBytes = 2_580_000_000,
+                    title = "夏日山野 · 照片备份",
+                    payloadJson = ""
+                ),
+                count = 2,
+                onClick = {}
+            )
             ConfigCard(config = previewConfig(), onClick = {}, onManageClick = {})
         }
     }

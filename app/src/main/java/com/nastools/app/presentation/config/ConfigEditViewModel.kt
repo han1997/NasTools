@@ -28,7 +28,10 @@ data class ConfigEditUiState(
     val isTesting: Boolean = false,
     val loadErrorMessage: String? = null,
     val errorMessage: String? = null,
-    val testMessage: String? = null
+    val testMessage: String? = null,
+    // 用户已确认的未保存保护：任何字段改动即标记（含改回原样的简化比对）；
+    // 测试连接不算改动；保存/删除成功后由调用方复位
+    val isDirty: Boolean = false
 )
 
 @HiltViewModel
@@ -130,6 +133,7 @@ class ConfigEditViewModel @Inject constructor(
             runCatching {
                 if (originalConfig == null) repository.insert(entity) else repository.update(entity)
             }.onSuccess {
+                _uiState.update { it.copy(isSaving = false, isDirty = false) }
                 onSaved()
             }.onFailure { error ->
                 _uiState.update {
@@ -183,6 +187,7 @@ class ConfigEditViewModel @Inject constructor(
     }
 
     private fun update(block: ConfigEditUiState.() -> ConfigEditUiState) {
+        _uiState.update { it.copy(isDirty = true) }
         _uiState.update { it.block() }
     }
 }

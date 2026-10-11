@@ -39,7 +39,9 @@ data class PresetEditUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val loadErrorMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // 用户已确认的未保存保护：任何字段改动即标记；保存成功后复位
+    val isDirty: Boolean = false
 )
 
 @HiltViewModel
@@ -221,7 +223,10 @@ class PresetEditViewModel @Inject constructor(
             )
 
             runCatching { presetRepository.upsert(preset) }
-                .onSuccess { onSaved() }
+                .onSuccess {
+                    _uiState.update { it.copy(isSaving = false, isDirty = false) }
+                    onSaved()
+                }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(isSaving = false, errorMessage = error.message ?: "保存预设失败")
@@ -252,6 +257,7 @@ class PresetEditViewModel @Inject constructor(
     }
 
     private fun update(block: PresetEditUiState.() -> PresetEditUiState) {
+        _uiState.update { it.copy(isDirty = true) }
         _uiState.update { it.block() }
     }
 }

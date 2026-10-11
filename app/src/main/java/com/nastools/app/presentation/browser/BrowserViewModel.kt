@@ -47,12 +47,25 @@ class BrowserViewModel @Inject constructor(
     private val configRepository: NasConfigRepository,
     private val adapterFactory: StorageAdapterFactory,
     private val uploadTaskCreator: UploadTaskCreator,
-    private val presetRepository: UploadPresetRepository
+    private val presetRepository: UploadPresetRepository,
+    private val fileTabSession: FileTabSession
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
 
     private var config: NasConfigEntity? = null
+
+    init {
+        // 文件标签页由会话内选择的连接驱动：选择变化时重新加载；
+        // 选择被清理（配置被删除）时由 FilesScreen 切换到选择页，这里无需处理。
+        viewModelScope.launch {
+            fileTabSession.selectedConfigId.collect { id ->
+                if (id != null && id != _uiState.value.configId) {
+                    load(id)
+                }
+            }
+        }
+    }
 
     fun load(configId: String) {
         if (_uiState.value.configId == configId && config != null) return
@@ -81,7 +94,10 @@ class BrowserViewModel @Inject constructor(
             }
 
             config = loaded
-            val startPath = RemotePath.normalize(loaded.defaultRemotePath ?: "/")
+            // 会话内目录恢复：同一连接回到上次浏览位置；切换连接时 session 已清空 lastPath
+            val startPath = fileTabSession.lastPath.value
+                ?.takeIf { it.isNotBlank() }
+                ?: RemotePath.normalize(loaded.defaultRemotePath ?: "/")
             _uiState.update {
                 it.copy(configName = loaded.name, path = startPath, isLoading = false)
             }
@@ -89,8 +105,18 @@ class BrowserViewModel @Inject constructor(
         }
     }
 
+    /** 页面首次组合时调用：若会话已有选择则确保已加载（VM 重建后恢复） */
+    fun loadCurrent() {
+        fileTabSession.selectedConfigId.value?.let { load(it) }
+    }
+
     fun refresh() {
         loadPath(_uiState.value.path)
+    }
+
+    /** 面包屑导航：跳转到指定目录前缀（含根目录 "/"） */
+    fun navigateTo(path: String) {
+        if (path != _uiState.value.path) loadPath(path)
     }
 
     fun open(entry: RemoteEntry) {
@@ -279,6 +305,7 @@ class BrowserViewModel @Inject constructor(
             runCatching {
                 adapterFactory.create(currentConfig).list(normalized)
             }.onSuccess { entries ->
+                fileTabSession.updatePath(normalized)
                 _uiState.update {
                     it.copy(
                         entries = entries,

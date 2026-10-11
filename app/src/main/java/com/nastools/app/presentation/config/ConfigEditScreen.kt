@@ -1,5 +1,6 @@
 package com.nastools.app.presentation.config
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
@@ -23,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -62,6 +64,7 @@ fun ConfigEditScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordVisible by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
     val motionEnabled = rememberNasMotionEnabled()
 
     LaunchedEffect(configId) {
@@ -76,10 +79,38 @@ fun ConfigEditScreen(
         }
     }
 
+    // 未保存编辑保护（用户已确认）：表单有改动时，顶部或系统返回先确认再离开；
+    // 保存/删除成功后 isDirty 已复位，正常返回不再提醒
+    val requestBack = {
+        if (uiState.isDirty) {
+            showUnsavedDialog = true
+        } else {
+            onBack()
+        }
+        Unit
+    }
+    BackHandler(enabled = uiState.isDirty && !showUnsavedDialog) {
+        showUnsavedDialog = true
+    }
+
+    if (showUnsavedDialog) {
+        NasConfirmDialog(
+            title = "未保存的修改",
+            message = "未保存的修改将会丢失。确定要离开吗？",
+            confirmText = "离开",
+            onConfirm = {
+                showUnsavedDialog = false
+                onBack()
+            },
+            onDismiss = { showUnsavedDialog = false },
+            dismissText = "继续编辑"
+        )
+    }
+
     if (showDeleteDialog) {
         NasConfirmDialog(
             title = "删除连接",
-            message = "删除后相关上传预设也会被移除，且此操作无法撤销。",
+            message = "将同时删除此连接相关的上传预设。NAS 上的文件不受影响，此操作不可撤销。",
             confirmText = "删除",
             onConfirm = {
                 showDeleteDialog = false
@@ -95,10 +126,10 @@ fun ConfigEditScreen(
         topBar = {
             NasTopAppBar(
                 title = if (configId == null) "新建连接" else "编辑连接",
-                subtitle = "WebDAV 地址和认证信息",
+                subtitle = "WebDAV 连接",
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
+                    IconButton(onClick = requestBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
                 },
                 actions = {
@@ -137,23 +168,31 @@ fun ConfigEditScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
-            OutlinedTextField(
-                value = uiState.name,
-                onValueChange = viewModel::updateName,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("连接名称") },
-                singleLine = true
+            Text(
+                "一个地址，就能找到你的文件。\n支持家庭 NAS、自建服务与 WebDAV 网盘。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            OutlinedTextField(
-                value = uiState.baseUrl,
-                onValueChange = viewModel::updateBaseUrl,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("WebDAV 地址") },
-                placeholder = { Text("https://example.com/dav") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                singleLine = true
-            )
+            FormField(label = "连接名称") {
+                OutlinedTextField(
+                    value = uiState.name,
+                    onValueChange = viewModel::updateName,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+
+            FormField(label = "WebDAV 地址", help = "例如 https://nas.example.com/dav") {
+                OutlinedTextField(
+                    value = uiState.baseUrl,
+                    onValueChange = viewModel::updateBaseUrl,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("https://example.com/dav") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    singleLine = true
+                )
+            }
             if (uiState.baseUrl.trim().startsWith("http://", ignoreCase = true)) {
                 Text(
                     "当前使用 HTTP 明文连接，密码和文件名可能被局域网内其他设备截获；建议优先使用 HTTPS。",
@@ -162,19 +201,20 @@ fun ConfigEditScreen(
                 )
             }
 
-            OutlinedTextField(
-                value = uiState.username,
-                onValueChange = viewModel::updateUsername,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("用户名") },
-                singleLine = true
-            )
+            FormField(label = "用户名") {
+                OutlinedTextField(
+                    value = uiState.username,
+                    onValueChange = viewModel::updateUsername,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
 
-            OutlinedTextField(
+            FormField(label = "密码") {
+                OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::updatePassword,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("密码") },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -185,15 +225,17 @@ fun ConfigEditScreen(
                     }
                 },
                 singleLine = true
-            )
+                )
+            }
 
-            OutlinedTextField(
-                value = uiState.defaultRemotePath,
-                onValueChange = viewModel::updateDefaultRemotePath,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("默认远端目录") },
-                singleLine = true
-            )
+            FormField(label = "默认远端目录") {
+                OutlinedTextField(
+                    value = uiState.defaultRemotePath,
+                    onValueChange = viewModel::updateDefaultRemotePath,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -213,24 +255,52 @@ fun ConfigEditScreen(
                 )
             }
 
-            Spacer(Modifier.height(NasSpacing.xs))
-
-            Button(
-                onClick = viewModel::testConnection,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isTesting && !uiState.isSaving
+                horizontalArrangement = Arrangement.spacedBy(NasSpacing.md)
             ) {
-                Text(if (uiState.isTesting) "测试中..." else "测试连接")
-            }
-
-            Button(
-                onClick = { viewModel.save(onBack) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isSaving && !uiState.isTesting
-            ) {
-                Text(if (uiState.isSaving) "保存中..." else "保存")
+                OutlinedButton(
+                    onClick = viewModel::testConnection,
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isTesting && !uiState.isSaving
+                ) {
+                    Text(if (uiState.isTesting) "测试中..." else "测试连接")
+                }
+                Button(
+                    onClick = { viewModel.save(onBack) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isSaving && !uiState.isTesting
+                ) {
+                    Text(if (uiState.isSaving) "保存中..." else "保存")
+                }
             }
         }
+        }
+    }
+}
+
+/** 原型表单样式：标签在输入框上方，帮助信息紧邻字段下方 */
+@Composable
+private fun FormField(
+    label: String,
+    help: String? = null,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(NasSpacing.xs))
+        content()
+        if (help != null) {
+            Spacer(Modifier.height(NasSpacing.xxs))
+            Text(
+                help,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.TaskEntity
+import com.nastools.app.util.BytesFormat
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasConfirmDialog
@@ -46,8 +48,8 @@ import com.nastools.app.presentation.theme.NasToolsTheme
 @Composable
 fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel(),
-    onBack: () -> Unit = {},
-    onNavigateToDetail: (String) -> Unit = {}
+    onNavigateToDetail: (String) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -69,6 +71,7 @@ fun TasksScreen(
 
     NasScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = bottomBar,
         topBar = {
             NasTopAppBar(
                 title = "任务中心",
@@ -78,17 +81,10 @@ fun TasksScreen(
                     "查看上传、暂停和重试"
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (uiState.isSelectionMode) {
-                            viewModel.exitSelectionMode()
-                        } else {
-                            onBack()
+                    if (uiState.isSelectionMode) {
+                        IconButton(onClick = { viewModel.exitSelectionMode() }) {
+                            Icon(Icons.Default.Close, "取消选择")
                         }
-                    }) {
-                        Icon(
-                            if (uiState.isSelectionMode) Icons.Default.Close else Icons.Default.ArrowBack,
-                            if (uiState.isSelectionMode) "取消选择" else "返回"
-                        )
                     }
                 },
                 actions = {
@@ -206,7 +202,7 @@ fun TasksScreen(
     if (showBatchDeleteDialog) {
         NasConfirmDialog(
             title = "批量删除",
-            message = "确定要删除选中的 ${uiState.selectedTaskIds.size} 个任务吗？此操作无法撤销。",
+            message = "删除所选 ${uiState.selectedTaskIds.size} 条任务记录？只删除记录，不会删除 NAS 上的文件。此操作无法撤销。",
             confirmText = "删除",
             onConfirm = {
                 viewModel.batchDelete(uiState.selectedTaskIds)
@@ -300,8 +296,7 @@ private fun TaskCard(
     }
 
     // Memoize MB conversions to avoid repeated division operations
-    val progressMB = remember(task.progressBytes) { task.progressBytes / 1024 / 1024 }
-    val totalMB = remember(task.totalBytes) { task.totalBytes / 1024 / 1024 }
+
 
     val iconScale = if (motionEnabled && task.status == "running") {
         val transition = rememberInfiniteTransition(label = "runningTaskPulse")
@@ -367,46 +362,92 @@ private fun TaskCard(
                     )
                 }
                 Spacer(Modifier.height(NasSpacing.sm))
-                val animatedProgress by animateFloatAsState(
-                    targetValue = progress,
-                    animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
-                    label = "taskProgress"
-                )
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier.fillMaxWidth().height(5.dp),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Spacer(Modifier.height(NasSpacing.sm))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "${progressMB}MB / ${totalMB}MB",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (task.totalBytes > 0) {
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = progress,
+                        animationSpec = nasMotionSpec(motionEnabled, NasMotion.Standard),
+                        label = "taskProgress"
                     )
-                    // Calculate percentage from animated progress (no need to memoize animated state)
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Spacer(Modifier.height(NasSpacing.sm))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${BytesFormat.human(task.progressBytes)} / ${BytesFormat.human(task.totalBytes)}",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // Calculate percentage from animated progress (no need to memoize animated state)
+                        Text(
+                            "${(animatedProgress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    // 总量未知：不定进度，不编造百分比（R8）
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Spacer(Modifier.height(NasSpacing.sm))
                     Text(
-                        "${(animatedProgress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
+                        "${BytesFormat.human(task.progressBytes)} 已上传 · 总计大小未知",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // 跳过/过滤警告（completed + errorMessage）用琥珀色，与失败红区分
                 if (task.errorMessage != null) {
-                    Spacer(Modifier.height(NasSpacing.xs))
-                    Text(
-                        task.errorMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Spacer(Modifier.height(NasSpacing.sm))
+                    val isWarning = task.status == "completed"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isWarning) {
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                } else {
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                                },
+                                shape = NasShape.Field
+                            )
+                            .padding(NasSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (isWarning) Icons.Default.Warning else Icons.Default.Error,
+                            contentDescription = null,
+                            tint = if (isWarning) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            task.errorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isWarning) {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = NasSpacing.sm)
+                        )
+                    }
                 }
             }
             if (!isSelectionMode) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, null)
+                        Icon(Icons.Default.MoreVert, "更多操作")
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         when (task.status) {

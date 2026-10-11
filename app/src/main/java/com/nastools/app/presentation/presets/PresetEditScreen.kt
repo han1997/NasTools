@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
@@ -48,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.presentation.components.NasErrorState
+import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
@@ -84,15 +86,43 @@ fun PresetEditScreen(
         }
     }
 
+    // 未保存编辑保护（用户已确认）：表单有改动时，顶部或系统返回先确认再离开
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    val requestBack = {
+        if (uiState.isDirty) {
+            showUnsavedDialog = true
+        } else {
+            onBack()
+        }
+        Unit
+    }
+    BackHandler(enabled = uiState.isDirty && !showUnsavedDialog) {
+        showUnsavedDialog = true
+    }
+
+    if (showUnsavedDialog) {
+        NasConfirmDialog(
+            title = "未保存的修改",
+            message = "未保存的修改将会丢失。确定要离开吗？",
+            confirmText = "离开",
+            onConfirm = {
+                showUnsavedDialog = false
+                onBack()
+            },
+            onDismiss = { showUnsavedDialog = false },
+            dismissText = "继续编辑"
+        )
+    }
+
     NasScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             NasTopAppBar(
                 title = if (presetId == null) "新建预设" else "编辑预设",
-                subtitle = "来源、目录和冲突策略",
+                subtitle = "上传工作流",
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
+                    IconButton(onClick = requestBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
                 },
                 actions = {
@@ -355,7 +385,7 @@ private val sourceTypeOptions = listOf(
     "folder" to "文件夹"
 )
 
-private val fileConflictOptions = listOf(
+internal val fileConflictOptions = listOf(
     "resume_or_overwrite" to "续传，完整则跳过",
     "overwrite" to "覆盖",
     "skip_existing" to "跳过",
@@ -363,7 +393,7 @@ private val fileConflictOptions = listOf(
     "fail" to "报错停止"
 )
 
-private val folderConflictOptions = listOf(
+internal val folderConflictOptions = listOf(
     "merge" to "合并",
     "rename" to "自动改名",
     "skip" to "跳过",

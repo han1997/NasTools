@@ -4,6 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,13 +18,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
@@ -29,7 +36,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -38,6 +45,7 @@ import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,6 +71,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -78,6 +87,7 @@ import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -90,10 +100,10 @@ import com.nastools.app.util.RemoteMedia
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BrowserScreen(
-    configId: String,
     viewModel: BrowserViewModel = hiltViewModel(),
-    onBack: () -> Unit = {},
-    onOpenMedia: (String) -> Unit = {}
+    onSwitchConnection: () -> Unit = {},
+    onOpenMedia: (String) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -128,8 +138,10 @@ fun BrowserScreen(
         uri?.let { uploadDraft = draftFromUri(it, "folder") }
     }
 
-    LaunchedEffect(configId) {
-        viewModel.load(configId)
+    LaunchedEffect(Unit) {
+        // 加载由会话内选择的连接驱动（见 BrowserViewModel）；
+        // 若会话已有选择但页面首次组合（如进程内重建），主动触发一次加载。
+        viewModel.loadCurrent()
     }
 
     BackHandler(enabled = uiState.path != "/") {
@@ -208,36 +220,31 @@ fun BrowserScreen(
 
     NasScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = bottomBar,
         topBar = {
             NasTopAppBar(
                 title = uiState.configName.ifBlank { "文件浏览" },
-                subtitle = uiState.path,
+                subtitle = "文件空间",
                 navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            if (uiState.path == "/") {
-                                onBack()
-                            } else {
-                                viewModel.goUp()
-                            }
+                    if (uiState.path != "/") {
+                        IconButton(onClick = { viewModel.goUp() }) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                "返回上一级目录"
+                            )
                         }
-                    ) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            if (uiState.path == "/") "返回主页" else "返回上一级目录"
-                        )
                     }
                 },
                 actions = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Home, "返回主页")
+                    IconButton(onClick = onSwitchConnection) {
+                        Icon(Icons.Default.SwapHoriz, "切换连接")
                     }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Default.Refresh, "刷新")
                     }
                     Box {
                         IconButton(onClick = { showUploadMenu = true }) {
-                            Icon(Icons.Default.UploadFile, "上传")
+                            Icon(Icons.Default.Add, "文件操作")
                         }
                         DropdownMenu(
                             expanded = showUploadMenu,
@@ -259,16 +266,15 @@ fun BrowserScreen(
                                     folderPicker.launch(null)
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("新建文件夹") },
+                                leadingIcon = { Icon(Icons.Default.CreateNewFolder, null) },
+                                onClick = {
+                                    showUploadMenu = false
+                                    showCreateFolderDialog = true
+                                }
+                            )
                         }
-                    }
-                    IconButton(onClick = { showCreateFolderDialog = true }) {
-                        Icon(Icons.Default.CreateNewFolder, "新建文件夹")
-                    }
-                    IconButton(onClick = viewModel::toggleLayout) {
-                        Icon(
-                            if (uiState.isGrid) Icons.Default.ViewList else Icons.Default.GridView,
-                            if (uiState.isGrid) "列表视图" else "网格视图"
-                        )
                     }
                 }
             )
@@ -280,6 +286,32 @@ fun BrowserScreen(
                 .fillMaxSize()
                 .nasAnimateContentSize(motionEnabled)
         ) {
+            // 面包屑（多层目录）+ 视图切换（Concept 01）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = NasSpacing.lg, end = NasSpacing.xs, top = NasSpacing.xs, bottom = NasSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BreadcrumbCrumbs(
+                        path = uiState.path,
+                        onNavigate = viewModel::navigateTo
+                    )
+                }
+                IconButton(onClick = viewModel::toggleLayout) {
+                    Icon(
+                        if (uiState.isGrid) Icons.Default.ViewList else Icons.Default.GridView,
+                        if (uiState.isGrid) "切换到列表视图" else "切换到网格视图"
+                    )
+                }
+            }
+
             if (uiState.isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -315,9 +347,9 @@ fun BrowserScreen(
                         columns = GridCells.Adaptive(132.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = NasSpacing.md,
-                            top = NasSpacing.md,
-                            end = NasSpacing.md,
+                            start = NasSpacing.lg,
+                            top = NasSpacing.sm,
+                            end = NasSpacing.lg,
                             bottom = NasSpacing.xl
                         ),
                         verticalArrangement = Arrangement.spacedBy(NasSpacing.md),
@@ -331,21 +363,43 @@ fun BrowserScreen(
                                 onDelete = { entryPendingDelete = entry }
                             )
                         }
+                        item { UploadFooter(onUpload = { showUploadMenu = true }) }
                     }
                 }
 
                 else -> {
+                    // 列表模式：文件夹卡片在上，文件行在下（Concept 01）
+                    val folders = uiState.entries.filter { it.isDirectory }
+                    val files = uiState.entries.filterNot { it.isDirectory }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = NasSpacing.md,
-                            top = NasSpacing.md,
-                            end = NasSpacing.md,
+                            start = NasSpacing.lg,
+                            top = NasSpacing.sm,
+                            end = NasSpacing.lg,
                             bottom = NasSpacing.xl
                         ),
                         verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
                     ) {
-                        items(uiState.entries, key = { it.path }) { entry ->
+                        if (folders.isNotEmpty()) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(NasSpacing.md)) {
+                                    folders.chunked(2).forEach { rowFolders ->
+                                        Row(horizontalArrangement = Arrangement.spacedBy(NasSpacing.md)) {
+                                            rowFolders.forEach { folder ->
+                                                FolderCard(
+                                                    name = folder.name,
+                                                    modifier = Modifier.weight(1f),
+                                                    onClick = { openEntry(folder) }
+                                                )
+                                            }
+                                            if (rowFolders.size == 1) Spacer(Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        items(files, key = { it.path }) { entry ->
                             EntryRow(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
@@ -353,9 +407,125 @@ fun BrowserScreen(
                                 onDelete = { entryPendingDelete = entry }
                             )
                         }
+                        item { UploadFooter(onUpload = { showUploadMenu = true }) }
                     }
                 }
             }
+        }
+    }
+}
+
+/** 面包屑：根目录 + 逐级路径段，点击跳转（多层目录导航） */
+@Composable
+private fun BreadcrumbCrumbs(
+    path: String,
+    onNavigate: (String) -> Unit
+) {
+    val segments = path.split('/').filter { it.isNotBlank() }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CrumbButton(label = "根目录", onClick = { onNavigate("/") })
+        segments.forEachIndexed { index, segment ->
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val target = "/" + segments.take(index + 1).joinToString("/")
+            CrumbButton(
+                label = segment,
+                onClick = { onNavigate(target) },
+                isLast = index == segments.lastIndex
+            )
+        }
+    }
+}
+
+@Composable
+private fun CrumbButton(label: String, onClick: () -> Unit, isLast: Boolean = false) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (isLast) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            MaterialTheme.colorScheme.primary
+        },
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(NasShape.Field)
+            .clickable(onClick = onClick)
+            .padding(horizontal = NasSpacing.xs, vertical = NasSpacing.sm)
+    )
+}
+
+/** 文件夹卡片（列表模式两列，Concept 01） */
+@Composable
+private fun FolderCard(
+    name: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = NasShape.Field,
+        colors = nasCardColors(),
+        elevation = nasCardElevation(),
+        border = nasCardBorder()
+    ) {
+        Column(modifier = Modifier.padding(NasSpacing.md)) {
+            Icon(
+                Icons.Default.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(bottom = NasSpacing.md)
+                    .size(30.dp)
+            )
+            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "文件夹",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** 底部上传入口（Concept 01：上传到当前目录） */
+@Composable
+private fun UploadFooter(onUpload: () -> Unit) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box {
+        Button(
+            onClick = { showMenu = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = NasSpacing.lg)
+        ) {
+            Icon(Icons.Default.UploadFile, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(NasSpacing.sm))
+            Text("上传到当前目录")
+        }
+        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            DropdownMenuItem(
+                text = { Text("上传文件") },
+                leadingIcon = { Icon(Icons.Default.InsertDriveFile, null) },
+                onClick = {
+                    showMenu = false
+                    onUpload()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("上传文件夹") },
+                leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
+                onClick = {
+                    showMenu = false
+                    onUpload()
+                }
+            )
         }
     }
 }
@@ -381,11 +551,26 @@ private fun UploadOptionsDialog(
                 modifier = Modifier.nasAnimateContentSize(motionEnabled),
                 verticalArrangement = Arrangement.spacedBy(NasSpacing.md)
             ) {
+                // 来源与目标（上传目标固定为当前目录，按钮文案已说明）
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (draft.sourceType == "folder") Icons.Default.FolderOpen else Icons.Default.InsertDriveFile,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        draft.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = NasSpacing.sm)
+                    )
+                }
                 Text(
-                    draft.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    "上传到当前目录",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OptionDropdown(
                     label = "同名文件",
@@ -437,6 +622,11 @@ private fun UploadOptionsDialog(
                         singleLine = true
                     )
                 }
+                Text(
+                    "同名文件的默认策略按远端大小判断：一致则跳过，不完整则续传。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         },
         confirmButton = {
@@ -508,40 +698,45 @@ private fun EntryRow(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
-        onClick = onOpen,
-        modifier = modifier,
-        shape = NasShape.Card,
-        colors = nasCardColors(),
-        elevation = nasCardElevation()
-    ) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-            headlineContent = {
+    // Concept 01：文件行为裸行 + 底部分隔线（无卡片）
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpen)
+                .padding(vertical = NasSpacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EntryIcon(entry)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = NasSpacing.md)
+            ) {
                 Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            },
-            supportingContent = {
-                Text(entry.subtitle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            },
-            leadingContent = {
-                EntryIcon(entry)
-            },
-            trailingContent = {
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, "更多")
-                    }
-                    EntryMenu(
-                        expanded = showMenu,
-                        onDismiss = { showMenu = false },
-                        onDelete = {
-                            showMenu = false
-                            onDelete()
-                        }
-                    )
-                }
+                Text(
+                    entry.subtitle(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-        )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "更多")
+                }
+                EntryMenu(
+                    expanded = showMenu,
+                    onDismiss = { showMenu = false },
+                    onDelete = {
+                        showMenu = false
+                        onDelete()
+                    }
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -605,8 +800,8 @@ private fun EntryGridCard(
 private fun EntryIcon(entry: RemoteEntry) {
     NasIconContainer(
         icon = if (entry.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
-        contentDescription = null,
-        selected = entry.isDirectory
+        contentDescription = if (entry.isDirectory) "文件夹" else "文件",
+        selected = true
     )
 }
 

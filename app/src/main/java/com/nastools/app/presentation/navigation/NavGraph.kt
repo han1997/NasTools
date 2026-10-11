@@ -2,13 +2,20 @@ package com.nastools.app.presentation.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Settings
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.nastools.app.presentation.browser.BrowserScreen
+import com.nastools.app.presentation.browser.FilesScreen
+import com.nastools.app.presentation.components.NasBottomBar
+import com.nastools.app.presentation.components.NasBottomNavItem
 import com.nastools.app.presentation.config.ConfigEditScreen
 import com.nastools.app.presentation.home.HomeScreen
 import com.nastools.app.presentation.media.MediaViewerScreen
@@ -18,6 +25,14 @@ import com.nastools.app.presentation.settings.SettingsScreen
 import com.nastools.app.presentation.tasks.TaskDetailScreen
 import com.nastools.app.presentation.tasks.TasksScreen
 
+/** 四个主入口（Concept 01）：底部导航仅在这些路由出现 */
+private val bottomNavItems = listOf(
+    NasBottomNavItem("home", "连接", Icons.Default.Dns),
+    NasBottomNavItem("files", "文件", Icons.Default.Folder),
+    NasBottomNavItem("tasks", "传输", Icons.Default.CloudUpload),
+    NasBottomNavItem("settings", "设置", Icons.Default.Settings)
+)
+
 @Composable
 fun NasToolsNavHost(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = "home") {
@@ -25,16 +40,32 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
             HomeScreen(
                 onNavigateToConfig = { navController.navigate("config/$it") },
                 onNavigateToNewConfig = { navController.navigate("config/new") },
-                onNavigateToBrowser = { navController.navigate("browser/$it") },
-                onNavigateToTasks = { navController.navigate("tasks") },
-                onNavigateToSettings = { navController.navigate("settings") },
-                onNavigateToPresets = { navController.navigate("presets") }
+                onOpenFiles = { navController.navigateTab("files") },
+                onOpenTasks = { navController.navigateTab("tasks") },
+                onOpenTaskDetail = { navController.navigate("tasks/$it") },
+                onNavigateToPresets = { navController.navigate("presets") },
+                bottomBar = { NasBottomBar(bottomNavItems, "home") { navController.navigateTab(it) } }
+            )
+        }
+        composable("files") {
+            FilesScreen(
+                onNewConnection = { navController.navigate("config/new") },
+                onOpenMedia = { configId, path ->
+                    navController.navigate(mediaViewerRoute(configId, path))
+                },
+                bottomBar = { NasBottomBar(bottomNavItems, "files") { navController.navigateTab(it) } }
             )
         }
         composable("tasks") {
             TasksScreen(
-                onBack = { navController.popBackStack() },
-                onNavigateToDetail = { navController.navigate("tasks/$it") }
+                onNavigateToDetail = { navController.navigate("tasks/$it") },
+                bottomBar = { NasBottomBar(bottomNavItems, "tasks") { navController.navigateTab(it) } }
+            )
+        }
+        composable("settings") {
+            SettingsScreen(
+                onNavigateToPresets = { navController.navigate("presets") },
+                bottomBar = { NasBottomBar(bottomNavItems, "settings") { navController.navigateTab(it) } }
             )
         }
         composable("tasks/{taskId}") {
@@ -42,9 +73,6 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
                 onBack = { navController.popBackStack() },
                 onDeleted = { navController.popBackStack() }
             )
-        }
-        composable("settings") {
-            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable("presets") {
             PresetListScreen(
@@ -77,16 +105,6 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("browser/{id}") { backStackEntry ->
-            val configId = backStackEntry.arguments?.getString("id").orEmpty()
-            BrowserScreen(
-                configId = configId,
-                onBack = { navController.popBackStack() },
-                onOpenMedia = { remotePath ->
-                    navController.navigate(mediaViewerRoute(configId, remotePath))
-                }
-            )
-        }
         composable(
             route = MEDIA_VIEWER_ROUTE,
             arguments = listOf(
@@ -101,6 +119,18 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
                 onBack = { navController.popBackStack() }
             )
         }
+    }
+}
+
+/**
+ * 主入口切换：singleTop + popUpTo 保存/恢复状态，避免重复堆栈，
+ * 并保留各标签的目录、列表位置等状态（用户已确认的导航规则）。
+ */
+private fun NavHostController.navigateTab(route: String) {
+    navigate(route) {
+        popUpTo(graph.startDestinationId) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 

@@ -1,27 +1,35 @@
 package com.nastools.app.presentation.presets
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -41,9 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.UploadPresetEntity
+import com.nastools.app.domain.model.UploadPresetOptionsCodec
 import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasIconContainer
@@ -52,6 +62,7 @@ import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.nasCardColors
+import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
 import com.nastools.app.presentation.theme.NasListPaddingWithFab
@@ -102,7 +113,7 @@ fun PresetListScreen(
                 subtitle = "保存常用来源和冲突策略",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
                 }
             )
@@ -154,65 +165,126 @@ private fun PresetCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val motionEnabled = rememberNasMotionEnabled()
+    // 冲突策略标签（来自 options 编码）
+    val policyLabel = remember(preset.optionsJson) {
+        val options = runCatching { UploadPresetOptionsCodec.decode(preset.optionsJson) }.getOrNull()
+        fileConflictOptions.firstOrNull { it.first == options?.overwriteMode }?.second ?: "默认策略"
+    }
 
     Card(
         onClick = onEdit,
         modifier = modifier.nasAnimateContentSize(motionEnabled),
         shape = NasShape.Card,
         colors = nasCardColors(),
-        elevation = nasCardElevation()
+        elevation = nasCardElevation(),
+        border = nasCardBorder()
     ) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-            headlineContent = {
-                Text(preset.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            },
-            supportingContent = {
-                Column {
-                    Text(configName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(modifier = Modifier.padding(NasSpacing.lg)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NasIconContainer(Icons.Default.Bookmark, null, selected = true)
+                Spacer(Modifier.width(NasSpacing.md))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(preset.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        "${preset.localLabel} -> ${preset.remoteRoot}",
+                        configName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            },
-            leadingContent = {
-                NasIconContainer(Icons.Default.Bookmark, null, selected = true)
-            },
-            trailingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onRun) {
-                        Icon(Icons.Default.PlayArrow, "运行")
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "更多操作")
                     }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "更多")
-                        }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("编辑") },
-                                leadingIcon = { Icon(Icons.Default.Edit, null) },
-                                onClick = {
-                                    showMenu = false
-                                    onEdit()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("删除") },
-                                leadingIcon = { Icon(Icons.Default.Delete, null) },
-                                onClick = {
-                                    showMenu = false
-                                    onDelete()
-                                }
-                            )
-                        }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("编辑") },
+                            leadingIcon = { Icon(Icons.Default.Edit, null) },
+                            onClick = {
+                                showMenu = false
+                                onEdit()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("删除") },
+                            leadingIcon = { Icon(Icons.Default.Delete, null) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            }
+                        )
                     }
                 }
             }
-        )
+            Spacer(Modifier.height(NasSpacing.md))
+            // 来源 → 目标路径块（Concept 01）
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        shape = NasShape.Field
+                    )
+                    .padding(NasSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(NasSpacing.xs)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        preset.localLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = NasSpacing.sm)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        preset.remoteRoot,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = NasSpacing.sm)
+                    )
+                }
+            }
+            Spacer(Modifier.height(NasSpacing.sm))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    policyLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onRun, enabled = !uiStateIsRunningPlaceholder()) {
+                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(NasSpacing.xs))
+                    Text("运行")
+                }
+            }
+        }
     }
 }
+
+private fun uiStateIsRunningPlaceholder(): Boolean = false
 
 // ---------------------------------------------------------------------------
 // @Preview：渲染无状态的 PresetCard，不依赖 ViewModel（AC15）。

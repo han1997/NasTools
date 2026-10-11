@@ -1,5 +1,7 @@
 package com.nastools.app.presentation.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,13 +9,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasStatusBadge
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
+import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -25,20 +31,20 @@ import com.nastools.app.util.PermissionHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit = {}) {
+fun SettingsScreen(
+    onNavigateToPresets: () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {}
+) {
     val context = LocalContext.current
     val motionEnabled = rememberNasMotionEnabled()
 
     NasScaffold(
+        bottomBar = bottomBar,
         topBar = {
+            // 主标签页：无返回箭头（Concept 01 子页面才显示返回）
             NasTopAppBar(
                 title = "设置",
-                subtitle = "权限和应用信息",
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
-                    }
-                }
+                subtitle = "权限和应用信息"
             )
         }
     ) { padding ->
@@ -51,74 +57,159 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                 .nasAnimateContentSize(motionEnabled),
             verticalArrangement = Arrangement.spacedBy(NasSpacing.lg)
         ) {
-            // 系统权限卡片
-            Card(
-                shape = NasShape.Card,
-                colors = nasCardColors(),
-                elevation = nasCardElevation()
-            ) {
-                Column(modifier = Modifier.padding(NasSpacing.lg)) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(NasSpacing.sm))
-                        Text("系统权限", style = MaterialTheme.typography.titleMedium)
-                    }
-                    Spacer(Modifier.height(NasSpacing.md))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(NasSpacing.sm))
-
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        headlineContent = { Text("通知权限") },
-                        supportingContent = { Text("允许显示后台上传进度") },
-                        leadingContent = { Icon(Icons.Default.Notifications, null) },
-                        trailingContent = {
-                            val hasPermission = PermissionHelper.hasNotificationPermission(context)
-                            NasStatusBadge(
-                                text = if (hasPermission) "已授权" else "未授权",
-                                tone = if (hasPermission) NasStatusTone.Success else NasStatusTone.Danger
-                            )
-                        }
+            // 品牌头（Concept 01）
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(MaterialTheme.colorScheme.primary, shape = NasShape.Field),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "n.",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
-
-                    Spacer(Modifier.height(NasSpacing.xs))
-
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        headlineContent = { Text("电池优化") },
-                        supportingContent = { Text("防止系统冻结后台上传") },
-                        leadingContent = { Icon(Icons.Default.BatterySaver, null) },
-                        trailingContent = {
-                            val isIgnoring = PermissionHelper.isIgnoringBatteryOptimization(context)
-                            NasStatusBadge(
-                                text = if (isIgnoring) "已忽略" else "优化中",
-                                tone = if (isIgnoring) NasStatusTone.Success else NasStatusTone.Danger
-                            )
-                        }
+                }
+                Column(modifier = Modifier.padding(start = NasSpacing.lg)) {
+                    Text("NasTools", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "你的私人文件空间",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // 关于卡片
+            // 工作流组
+            Text(
+                "工作流",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Card(
                 shape = NasShape.Card,
                 colors = nasCardColors(),
-                elevation = nasCardElevation()
+                elevation = nasCardElevation(),
+                border = nasCardBorder()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onNavigateToPresets)
+                        .padding(NasSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Bookmark,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = NasSpacing.md)
+                    ) {
+                        Text("上传预设", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "管理常用来源与上传规则",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "打开上传预设",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 后台传输组（真实系统权限，Concept 01：未授权用 Warning 琥珀）
+            Text(
+                "后台传输",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Card(
+                shape = NasShape.Card,
+                colors = nasCardColors(),
+                elevation = nasCardElevation(),
+                border = nasCardBorder()
             ) {
                 Column(modifier = Modifier.padding(NasSpacing.lg)) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(NasSpacing.sm))
-                        Text("关于", style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = NasSpacing.md)
+                        ) {
+                            Text("通知权限", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "显示后台上传进度",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        val hasPermission = PermissionHelper.hasNotificationPermission(context)
+                        NasStatusBadge(
+                            text = if (hasPermission) "已允许" else "未允许",
+                            tone = if (hasPermission) NasStatusTone.Success else NasStatusTone.Warning
+                        )
                     }
-                    Spacer(Modifier.height(NasSpacing.md))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(NasSpacing.sm))
+                    Spacer(Modifier.height(NasSpacing.lg))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(NasSpacing.lg))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.BatterySaver,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = NasSpacing.md)
+                        ) {
+                            Text("电池优化", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "避免后台任务被系统中断",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        val isIgnoring = PermissionHelper.isIgnoringBatteryOptimization(context)
+                        NasStatusBadge(
+                            text = if (isIgnoring) "不受限制" else "待设置",
+                            tone = if (isIgnoring) NasStatusTone.Success else NasStatusTone.Warning
+                        )
+                    }
+                }
+            }
 
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        headlineContent = { Text("版本") },
-                        supportingContent = { Text("0.1.0 (Compose 版)") }
+            // 关于组
+            Text(
+                "关于",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Card(
+                shape = NasShape.Card,
+                colors = nasCardColors(),
+                elevation = nasCardElevation(),
+                border = nasCardBorder()
+            ) {
+                Column(modifier = Modifier.padding(NasSpacing.lg)) {
+                    Text("版本", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "0.1.0 (Compose 版)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
