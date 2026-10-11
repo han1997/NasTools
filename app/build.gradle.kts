@@ -61,6 +61,10 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                // 无 release 密钥库的机器（本机 / CI）：回退 debug 签名，
+                // 保证 release 包可安装可验收；正式发布仍需在持有密钥库的机器出包。
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
