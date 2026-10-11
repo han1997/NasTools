@@ -86,7 +86,7 @@
 - Android 映射：`BrowserScreen.kt` 列表模式 `EntryRow`（含 EntryMenu 删除），
   已在 commit be9df6a 实现。
 
-## v1.3：WebDAV 备份与恢复（2026-10-11，待用户确认）
+## v1.3：WebDAV 备份与恢复（2026-10-11，已确认）
 
 - 对应任务:`10-11-webdav-preset-backup`（PRD D1–D7）。
 - 修改页面:
@@ -97,5 +97,5 @@
   - 备份前确认弹窗:写明目标路径,并明确「备份文件包含明文连接密码」的风险。
   - 进行中态(骨架屏)、失败态(演示:连接失败)、恢复结果页(新增/跳过逐条列明)。
 - 演示边界:不连接真实 NAS,不上传/下载文件;结果与错误均为模拟;无连接时引导新建。
-- 确认状态:**待用户确认**。用户确认前不得据此改写 Android 代码(prototype-first 契约 R4)。
-- 待确认后补记实际基准 commit 与确认依据(AC6)。
+- 确认状态:**已确认**(用户回复「确认」,2026-10-11)。可据此实现 Android 代码。
+- 原型基准 commit:`8245d2f`(docs(prototype): add WebDAV backup & restore scenarios)。
