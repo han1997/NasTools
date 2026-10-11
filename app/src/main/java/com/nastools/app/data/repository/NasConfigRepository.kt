@@ -12,6 +12,8 @@ class NasConfigRepository @Inject constructor(
 ) {
     fun observeAll(): Flow<List<NasConfigEntity>> = dao.observeAll()
 
+    suspend fun getAll(): List<NasConfigEntity> = dao.getAll()
+
     fun observeById(id: String): Flow<NasConfigEntity?> = dao.observeById(id)
 
     suspend fun getById(id: String): NasConfigEntity? = dao.getById(id)

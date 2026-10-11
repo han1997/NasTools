@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import com.nastools.app.BuildConfig
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasStatusBadge
 import com.nastools.app.presentation.components.NasTopAppBar
@@ -33,6 +34,7 @@ import com.nastools.app.util.PermissionHelper
 @Composable
 fun SettingsScreen(
     onNavigateToPresets: () -> Unit = {},
+    onNavigateToBackup: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -192,6 +194,50 @@ fun SettingsScreen(
                 }
             }
 
+            // 数据组(Concept 01 v1.3:备份与恢复入口)
+            Text(
+                "数据",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Card(
+                shape = NasShape.Card,
+                colors = nasCardColors(),
+                elevation = nasCardElevation(),
+                border = nasCardBorder()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onNavigateToBackup)
+                        .padding(NasSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = NasSpacing.md)
+                    ) {
+                        Text("备份与恢复", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "把连接与上传预设备份到 WebDAV",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "打开备份与恢复",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // 关于组
             Text(
                 "关于",
@@ -207,7 +253,8 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(NasSpacing.lg)) {
                     Text("版本", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "0.1.0 (Compose 版)",
+                        // R3:版本号来自构建产物 versionName;debug 自动带 -debug 后缀
+                        BuildConfig.VERSION_NAME,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

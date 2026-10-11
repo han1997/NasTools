@@ -9,6 +9,9 @@ interface UploadPresetDao {
     @Query("SELECT * FROM upload_presets ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<UploadPresetEntity>>
 
+    @Query("SELECT * FROM upload_presets ORDER BY updatedAt DESC")
+    suspend fun getAll(): List<UploadPresetEntity>
+
     @Query("SELECT * FROM upload_presets WHERE nasConfigId = :nasConfigId ORDER BY updatedAt DESC")
     fun observeByConfig(nasConfigId: String): Flow<List<UploadPresetEntity>>
 

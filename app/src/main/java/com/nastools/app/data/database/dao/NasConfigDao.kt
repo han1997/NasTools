@@ -9,6 +9,9 @@ interface NasConfigDao {
     @Query("SELECT * FROM nas_configs ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<NasConfigEntity>>
 
+    @Query("SELECT * FROM nas_configs ORDER BY createdAt DESC")
+    suspend fun getAll(): List<NasConfigEntity>
+
     @Query("SELECT * FROM nas_configs WHERE id = :id")
     suspend fun getById(id: String): NasConfigEntity?
 

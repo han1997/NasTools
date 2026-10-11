@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/prototype-first.md", "reason": "阶段 0 强制门槛：新增 UI 必须先补原型并经用户确认，再写 Compose 代码"}
+{"file": ".trellis/spec/frontend/design-tokens.md", "reason": "备份与恢复页复用 theme token 与既有组件，不得新增平行主题"}
+{"file": ".trellis/spec/frontend/navigation-session.md", "reason": "新增 backup 子路由不传 bottomBar；设置页入口与返回契约"}
+{"file": ".trellis/spec/frontend/state-feedback.md", "reason": "备份/恢复的加载/空/错误/成功反馈与危险操作确认契约"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "网络与解析错误归一化为可读文案"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "纯逻辑下放单测、数据访问不新造平行层"}

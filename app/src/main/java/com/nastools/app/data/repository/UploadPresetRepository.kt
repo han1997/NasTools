@@ -12,6 +12,8 @@ class UploadPresetRepository @Inject constructor(
 ) {
     fun observeAll(): Flow<List<UploadPresetEntity>> = dao.observeAll()
 
+    suspend fun getAll(): List<UploadPresetEntity> = dao.getAll()
+
     fun observeByConfig(nasConfigId: String): Flow<List<UploadPresetEntity>> = dao.observeByConfig(nasConfigId)
 
     suspend fun getById(id: String): UploadPresetEntity? = dao.getById(id)

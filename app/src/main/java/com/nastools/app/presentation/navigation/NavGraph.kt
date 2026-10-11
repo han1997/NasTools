@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.nastools.app.presentation.backup.BackupScreen
 import com.nastools.app.presentation.browser.FilesScreen
 import com.nastools.app.presentation.components.NasBottomBar
 import com.nastools.app.presentation.components.NasBottomNavItem
@@ -77,7 +78,15 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
         composable("settings") {
             SettingsScreen(
                 onNavigateToPresets = { navController.navigate("presets") },
+                onNavigateToBackup = { navController.navigate("backup") },
                 bottomBar = { NasBottomBar(bottomNavItems, "settings") { navController.navigateTab(it) } }
+            )
+        }
+        // 子页面:不传 bottomBar(Concept 01)
+        composable("backup") {
+            BackupScreen(
+                onBack = { navController.popBackStack() },
+                onNewConnection = { navController.navigate("config/new") }
             )
         }
         composable("tasks/{taskId}") {
