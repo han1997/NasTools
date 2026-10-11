@@ -43,6 +43,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // debug 与 release 并存：不同签名 + 不同包名后缀，互不覆盖安装
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
