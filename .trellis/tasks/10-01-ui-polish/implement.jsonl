@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/prototype-first.md", "reason": "原型版本、先确认后实施、保留既有能力与视觉验收强制契约"}
+{"file": ".trellis/spec/frontend/design-tokens.md", "reason": "集中迁移既有 theme token、状态色与明暗 Preview；新基准优先级"}
+{"file": ".trellis/spec/frontend/state-feedback.md", "reason": "真实加载错误、瞬时反馈、刷新保留与危险确认不可因视觉重写退化"}
+{"file": ".trellis/spec/frontend/compose-optimization.md", "reason": "Compose 生命周期与性能约定"}
+{"file": ".trellis/tasks/10-01-ui-polish/research.md", "reason": "原型与真实功能差异、原型缺口和范围边界证据"}
+{"file": "prototypes/nastools-ui/BASELINE.md", "reason": "Concept 01 确认范围及原型源码版本摘要"}

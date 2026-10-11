@@ -1,11 +1,11 @@
 {
   "id": "ui-polish",
   "name": "ui-polish",
-  "title": "界面美化",
-  "description": "",
-  "status": "planning",
-  "dev_type": null,
-  "scope": null,
+  "title": "原型驱动的全应用 UI 重设计",
+  "description": "以用户确认的 prototypes/nastools-ui/ Concept 01 为基准迁移原生 Compose，并建立原型优先开发规范；当前仅批准规划。",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "ui",
   "package": null,
   "priority": "P2",
   "creator": "han1997",
@@ -20,7 +20,12 @@
   "subtasks": [],
   "children": [],
   "parent": "10-01-experience-feature-optimization",
-  "relatedFiles": [],
-  "notes": "",
+  "relatedFiles": [
+    "prototypes/nastools-ui/BASELINE.md",
+    ".trellis/spec/frontend/prototype-first.md",
+    ".trellis/spec/frontend/design-tokens.md",
+    "app/src/main/java/com/nastools/app/presentation/navigation/NavGraph.kt"
+  ],
+  "notes": "用户确认 Concept 01 范围 A 与 v1.1 基准（连接选择/子页导航/未保存保护/完整上传配置/批量删除/警告/不定进度/状态区分）。已批准进入实施：先迁移主题与共享组件，再导航与各页面。新增搜索/筛选/重命名/手动主题偏好不在本轮。",
   "meta": {}
 }
