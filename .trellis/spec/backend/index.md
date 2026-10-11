@@ -8,6 +8,8 @@
 
 This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
 
+> **硬规则**:本项目**禁止使用子代理**(**禁止 `trellis-implement` / `trellis-check` / `trellis-research` 等派发),实现与检查由当前会话直接完成。详见 [开发流程约定](../guides/development-conventions.md)。
+
 ---
 
 ## Guidelines Index
