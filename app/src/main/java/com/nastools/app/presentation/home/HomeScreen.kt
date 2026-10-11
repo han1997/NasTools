@@ -80,13 +80,18 @@ fun HomeScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            if (uiState.activeTasks.isNotEmpty()) {
-                ActiveTaskBanner(
-                    task = uiState.activeTasks.first(),
-                    count = uiState.activeTasks.size,
-                    onClick = { onOpenTaskDetail(uiState.activeTasks.first().id) }
-                )
-            }
+            // 原型 homeView：welcome 区块在顶栏之下、所有内容之上
+            Text(
+                "一切，都在这里。",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(top = NasSpacing.xs)
+            )
+            Text(
+                "连接你的 NAS，随时接着上一次。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = NasSpacing.xxs, bottom = NasSpacing.lg)
+            )
 
             when {
                 uiState.loadErrorMessage != null -> {
@@ -104,6 +109,18 @@ fun HomeScreen(
                 }
 
                 else -> {
+                    // 原型：有 running/waiting 任务时显示传输横幅，否则显示空闲快捷条
+                    if (uiState.activeTasks.isNotEmpty()) {
+                        ActiveTaskBanner(
+                            task = uiState.activeTasks.first(),
+                            count = uiState.activeTasks.size,
+                            onClick = { onOpenTaskDetail(uiState.activeTasks.first().id) }
+                        )
+                        Spacer(Modifier.height(NasSpacing.lg))
+                    } else {
+                        IdleTransferShortcut()
+                        Spacer(Modifier.height(NasSpacing.lg))
+                    }
                     ConfigList(
                         motionEnabled = motionEnabled,
                         configs = uiState.configs,
@@ -198,7 +215,7 @@ private fun ActiveTaskBanner(
                     trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f)
                 )
                 Text(
-                    "${formatBytes(task.progressBytes, null)} 已上传 · 总计大小未知",
+                    "${formatBytes(task.progressBytes, null)} 已上传 · 总计未知",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(top = NasSpacing.xs)
                 )
@@ -233,8 +250,8 @@ private fun ConfigList(
         NasEmptyState(
             modifier = modifier,
             icon = Icons.Default.Dns,
-            title = "还没有连接配置",
-            message = "添加 WebDAV 连接后即可浏览和上传文件",
+            title = "还没有连接",
+            message = "添加一个 WebDAV 地址，开始管理你的文件。",
             action = {
                 Button(onClick = onCreateClick) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
@@ -387,6 +404,32 @@ private fun ConfigCard(
     }
 }
 
+/** 原型 homeView：无 running/waiting 任务时的空闲快捷条（不可点击） */
+@Composable
+private fun IdleTransferShortcut() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = NasShape.Field,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier.padding(NasSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NasIconContainer(Icons.Default.CheckCircle, null, selected = false)
+            Spacer(Modifier.width(NasSpacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("暂时没有进行中的传输", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "文件准备好了，就从浏览页开始上传。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 private fun hostOf(baseUrl: String): String =
     android.net.Uri.parse(baseUrl).host ?: baseUrl
 
@@ -531,6 +574,9 @@ private fun HomePreviewContent() {
                 onClick = {}
             )
             ConfigCard(config = previewConfig(), onClick = {}, onManageClick = {}, onDeleteClick = {})
+            SectionHeader(title = "我的连接", detail = "WebDAV", count = 1)
+            IdleTransferShortcut()
+            PresetShortcut(onClick = {})
         }
     }
 }

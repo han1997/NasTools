@@ -62,7 +62,12 @@ class HomeViewModel @Inject constructor(
                 configRepository.observeAll(),
                 taskRepository.observeActive()
             ) { configs, tasks ->
-                HomeUiState(configs = configs, activeTasks = tasks, isLoading = false)
+                // 原型首页横幅只统计 running/waiting；paused 属任务页语义
+                HomeUiState(
+                    configs = configs,
+                    activeTasks = tasks.filter { it.status == "running" || it.status == "waiting" },
+                    isLoading = false
+                )
             }
                 .onStart { emit(HomeUiState()) }
                 .catch { error ->
