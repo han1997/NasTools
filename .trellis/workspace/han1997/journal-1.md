@@ -479,3 +479,38 @@ Migrated entire app UI from MD3 style to modern card style: removed gradient bac
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 原型驱动的全应用 UI 重设计（Concept 01 迁移）
+
+**Date**: 2026-10-11
+**Task**: 原型驱动的全应用 UI 重设计（Concept 01 迁移）
+**Branch**: `main`
+
+### Summary
+
+以用户确认的 prototypes/nastools-ui v1.1 基准完成全应用 Compose 迁移：建立原型优先规范与 BASELINE 登记；主题令牌（松绿/雾白/石墨 + Progress 蓝/Danger 红专用语义色）；四入口导航 + FileTabSession 会话内连接选择（不默选/删除清理/断网不切换）；连接与预设表单未保存保护；文件浏览面包屑 + 完整上传配置（五+四策略/移动上传/保存预设）；任务不定进度与琥珀警告；预设卡与设置分组。范围 A：未加搜索/筛选/重命名/手动主题。验证：compileDebugKotlin + testDebugUnitTest + lintDebug 通过（本机 Gradle 8.14）；明暗截图/真机交互/受控 NAS 回归待设备验收（任务文档已标记）。规范沉淀：navigation-session.md（导航/会话/未保存保护契约）。子代理 4 次派发均因模型 API 过载失败，全部主会话内实施。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `abef60c` | (see git log) |
+| `0c5ecd1` | (see git log) |
+| `189c722` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
