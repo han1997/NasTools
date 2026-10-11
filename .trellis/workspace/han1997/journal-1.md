@@ -514,3 +514,24 @@ Migrated entire app UI from MD3 style to modern card style: removed gradient bac
 ### Next Steps
 
 - None - task complete
+
+## 2026-10-11 · 流程教训：先改原型，后改代码（用户严肃纠正）
+
+- `10-11-home-files-ui-fixes` 中两处违反 prototype-first 契约：
+  1. R3 文件夹单列列表行是用户确认的偏离，但只记在 PRD 就改了代码，原型没落（已补 v1.2 + BASELINE 记录，commit 93a632a）。
+  2. 首页对齐时误读原型 `homeView()`，把本来就有的 welcome 区块当成多余文案删了（0.2.4）；复验后恢复并补空闲快捷条（0.2.5，commit 3dd6fce）。
+- **规则：任何 UI 改动，即使方向已获用户口头确认，也必须先落原型 → 用户复验 → 再改 Compose 代码。改代码前必须逐行读原型对应 view 函数，不能凭记忆或印象对照。**
+
+## 2026-10-11 · 再记两条（用户纠正）
+
+1. **每轮交付必须同时构建 debug + release 包并确认两个 APK 都产出**（`./gradlew :app:assembleDebug :app:assembleRelease`，本地用 gradle-8.14 wrapper dist）。0.2.5 首轮漏了 release 却汇报已构建——汇报前先 `ls app/build/outputs/apk/{debug,release}/` 核实。
+2. **对照原型要看到像素级**：非列表内容（welcome、横幅、快捷条）也要吃屏幕边距（原型 content 22px ≈ screenH），不能只对齐文字内容而漏掉布局容器；字号同样要对照（原型 28px h1 → headlineMedium，不是 headlineSmall）。
+
+## 2026-10-11 · WebDAV 备份与恢复 (0.2.6, 任务 10-11-webdav-preset-backup)
+
+- 流程这次走对了:**先补原型 v1.3 → 用户确认(commit 8245d2f) → 再写代码**。
+- 交付:连接(含明文密码,用户决定)+ 预设备份为 `<默认目录>/NasTools/backup.json`;
+  恢复按名称幂等合并(同名连接只复用 id 不覆盖、同连接同名预设跳过);设置页版本号改读 BuildConfig。
+- 检查阶段抓到两个真问题:CancellationException 被 `recoverCatching` 吞掉;WebDAV 原始 HTTP 码直接给用户。
+  两条都写进了 spec(concurrency-patterns、state-feedback)。
+- 待用户真机验收:备份上传、恢复下载、风险弹窗、版本号显示、网络失败提示。
