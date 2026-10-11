@@ -80,17 +80,22 @@ fun HomeScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // 原型 homeView：welcome 区块在顶栏之下、所有内容之上
+            // 原型 homeView：welcome 区块在顶栏之下、所有内容之上；
+            // 原型 content 有 22px 屏幕边距 → 与列表内边距对齐（screenH）
             Text(
                 "一切，都在这里。",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(top = NasSpacing.xs)
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .padding(top = NasSpacing.xs)
+                    .padding(horizontal = NasSpacing.screenH)
             )
             Text(
                 "连接你的 NAS，随时接着上一次。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = NasSpacing.xxs, bottom = NasSpacing.lg)
+                modifier = Modifier
+                    .padding(top = NasSpacing.xxs, bottom = NasSpacing.lg)
+                    .padding(horizontal = NasSpacing.screenH)
             )
 
             when {
@@ -114,11 +119,12 @@ fun HomeScreen(
                         ActiveTaskBanner(
                             task = uiState.activeTasks.first(),
                             count = uiState.activeTasks.size,
-                            onClick = { onOpenTaskDetail(uiState.activeTasks.first().id) }
+                            onClick = { onOpenTaskDetail(uiState.activeTasks.first().id) },
+                            modifier = Modifier.padding(horizontal = NasSpacing.screenH)
                         )
                         Spacer(Modifier.height(NasSpacing.lg))
                     } else {
-                        IdleTransferShortcut()
+                        IdleTransferShortcut(modifier = Modifier.padding(horizontal = NasSpacing.screenH))
                         Spacer(Modifier.height(NasSpacing.lg))
                     }
                     ConfigList(
@@ -156,11 +162,12 @@ fun HomeScreen(
 private fun ActiveTaskBanner(
     task: TaskEntity,
     count: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     // 原型：accent 绿横幅；进度与字节数来自真实任务数据，未知总量显示已传大小
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = NasShape.Card,
@@ -406,9 +413,9 @@ private fun ConfigCard(
 
 /** 原型 homeView：无 running/waiting 任务时的空闲快捷条（不可点击） */
 @Composable
-private fun IdleTransferShortcut() {
+private fun IdleTransferShortcut(modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = NasShape.Field,
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
