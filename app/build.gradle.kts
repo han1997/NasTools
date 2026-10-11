@@ -42,6 +42,14 @@ android {
         }
     }
 
+    // APK 文件名：NasTools-<版本号>-<变体>.apk（用户要求：软件名称-版本号）
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "NasTools-${versionName.replace("-debug", "")}-${name}.apk"
+        }
+    }
+
     buildTypes {
         debug {
             // debug 与 release 并存：不同签名 + 不同包名后缀，互不覆盖安装

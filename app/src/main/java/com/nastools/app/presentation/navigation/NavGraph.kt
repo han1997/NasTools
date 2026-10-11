@@ -1,6 +1,9 @@
 package com.nastools.app.presentation.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
@@ -35,7 +38,15 @@ private val bottomNavItems = listOf(
 
 @Composable
 fun NasToolsNavHost(navController: NavHostController = rememberNavController()) {
-    NavHost(navController = navController, startDestination = "home") {
+    NavHost(
+        navController = navController,
+        startDestination = "home",
+        // 默认转场带长延迟，标签切换时会闪出窗口背景；改为快速交叉淡化
+        enterTransition = { fadeIn(animationSpec = tween(150)) },
+        exitTransition = { fadeOut(animationSpec = tween(150)) },
+        popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+        popExitTransition = { fadeOut(animationSpec = tween(150)) }
+    ) {
         composable("home") {
             HomeScreen(
                 onNavigateToConfig = { navController.navigate("config/$it") },
@@ -49,6 +60,7 @@ fun NasToolsNavHost(navController: NavHostController = rememberNavController()) 
         }
         composable("files") {
             FilesScreen(
+                onBack = { navController.popBackStack() },
                 onNewConnection = { navController.navigate("config/new") },
                 onOpenMedia = { configId, path ->
                     navController.navigate(mediaViewerRoute(configId, path))

@@ -106,6 +106,7 @@ class FilesViewModel @Inject constructor(
 fun FilesScreen(
     viewModel: FilesViewModel = hiltViewModel(),
     bottomBar: @Composable () -> Unit = {},
+    onBack: () -> Unit = {},
     onNewConnection: () -> Unit = {},
     onOpenMedia: (configId: String, path: String) -> Unit = { _, _ -> }
 ) {
@@ -150,7 +151,7 @@ fun FilesScreen(
             ConnectionSelectScreen(
                 configs = configs.orEmpty(),
                 isLoading = configs == null,
-                onBack = { /* 由系统返回处理：回到上一个主标签 */ },
+                onBack = onBack,
                 onPick = viewModel::select,
                 onNewConnection = onNewConnection
             )
