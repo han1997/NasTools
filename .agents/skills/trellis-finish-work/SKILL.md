@@ -69,3 +69,16 @@ python ./.trellis/scripts/add_session.py \
 Use the work-commit hashes produced in Phase 3.4 (visible in Step 1's `Recent commits` list, or via `git log --oneline`) for `--commit`. Do not include the archive commit hashes from Step 3. This produces a `chore: record journal` commit.
 
 Final git log order: `<work commits from 3.4>` → `chore(task): archive ...` (one or more) → `chore: record journal`.
+
+## Step 5: Push to remote
+
+```bash
+git push
+```
+
+- Push `main` to `origin` after the journal commit — this is a mandatory part of
+  finish-work (user-confirmed 2026-10-11), not optional.
+- If the push fails (network/auth), report the failure and the exact command to
+  retry; do NOT silently skip it or mark the session as fully wrapped up.
+- Do not force-push. If the remote has diverged, stop and ask the user how to
+  reconcile (merge/rebase) before pushing.
