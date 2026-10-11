@@ -85,7 +85,40 @@ LaunchedEffect(transientMessage) {
 }
 ```
 
-`CancellationException` 必须继续抛出，不能被转换成普通操作失败；普通异常才转成 `errorMessage`。
+`CancellationException` 必须继续抛出,不能被转换成普通操作失败;普通异常才转成 `errorMessage`。
+
+### 禁止用 `runCatching`/`recoverCatching` 处理协程取消
+
+`Result.recoverCatching` 会**捕获**回调里重新抛出的异常，把它变成 `Result.failure`。
+因此下面这种写法看似保留了取消，实际会静默吞掉 `CancellationException`，把协程取消
+变成用户可见的失败文案：
+
+```kotlin
+// ❌ 错误：取消被 recoverCatching 吞掉，永远不传播
+return runCatching {
+    adapter.upload(path, bytes)
+}.recoverCatching { e ->
+    if (e is CancellationException) throw e   // 没用：外层又捕获了
+    throw IOException(e.readableMessage())
+}
+```
+
+正确做法是用显式 `try/catch`，让 `CancellationException` 分支直接 `throw`：
+
+```kotlin
+// ✅ 正确
+return try {
+    adapter.upload(path, bytes)
+    Result.success(path)
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Result.failure(IOException("备份失败:${e.readableMessage()}"))
+}
+```
+
+参考实现：`data/backup/BackupRepository.kt`（`backup` / `restore` 都遵循此结构），
+回归测试见 `app/src/test/.../data/backup/`。
 
 ## 危险操作契约
 
@@ -113,6 +146,36 @@ LaunchedEffect(transientMessage) {
 - 手工验证网络失败、空数据、刷新保留旧列表、操作异常、确认取消/确认路径。
 
 ## 常见错误
+
+### 错误：把网络/HTTP 原始报错直接给用户
+
+WebDAV 客户端抛出的异常消息是 `PUT failed: 403` / `PROPFIND failed: 401` 这类
+带协议细节的字符串。直接 `showSnackbar(e.message)` 会把原始码泄给用户。
+
+```kotlin
+// ❌ 错误：用户看到 “PUT failed: 403”
+Result.failure(IOException(e.message ?: "备份失败"))
+```
+
+正确做法是集中做一层错误映射，把常见网络异常与 HTTP 码翻成中文，
+未知消息才回退到原文（不得静默吞掉）：
+
+```kotlin
+// ✅ 正确：单一映射点，未知消息回退原文
+internal fun Throwable.readableMessage(): String {
+    when (this) {
+        is java.net.UnknownHostException -> return "无法解析服务器地址,请检查网络与地址"
+        is java.net.SocketTimeoutException -> return "连接服务器超时,请检查网络后重试"
+        is java.net.ConnectException -> return "无法连接到服务器,请检查网络与地址"
+    }
+    val raw = message?.takeIf { it.isNotBlank() } ?: return "网络或服务器错误"
+    val code = httpFailurePattern.matchEntire(raw)?.groupValues?.get(1)?.toIntOrNull()
+        ?: return raw
+    return when (code) { 401 -> ...; 403 -> ...; 404 -> ...; 507 -> ...; in 500..599 -> ...; else -> ... }
+}
+```
+
+参考实现：`data/backup/BackupRepository.kt`；映射单测：`BackupErrorMessageTest`。
 
 ### 错误：用 Snackbar 承担页面加载失败
 

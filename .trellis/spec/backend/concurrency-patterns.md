@@ -228,6 +228,37 @@ val semaphore = Semaphore(concurrency)
 
 ---
 
+## 协程取消不得被吞掉
+
+`Result.recoverCatching`（以及任何捕获后再重新包成 `Result.failure` 的写法）会**捕获**
+回调中重新抛出的异常，使 `CancellationException` 变成普通失败——协程取消无法传播，
+调用方不知道操作已被取消，UI 还会显示错误的失败文案。
+
+```kotlin
+// ❌ 错误：取消被 recoverCatching 吞掉
+return runCatching { adapter.upload(path, bytes) }
+    .recoverCatching { e ->
+        if (e is CancellationException) throw e   // 外层 Result 又捕获了
+        throw IOException(e.readableMessage())
+    }
+```
+
+```kotlin
+// ✅ 正确：显式 try/catch，取消分支直接 throw
+return try {
+    adapter.upload(path, bytes)
+    Result.success(path)
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Result.failure(IOException("备份失败:${e.readableMessage()}"))
+}
+```
+
+规则适用于任何返回 `Result` 的 suspend 函数。参考 `data/backup/BackupRepository.kt`。
+
+---
+
 ## 相关文档
 
 - [错误处理规范](error-handling.md) - 并发场景下的错误分类
