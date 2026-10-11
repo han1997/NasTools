@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/prototype-first.md", "reason": "原型优先契约：UI 改动必须对齐 Concept 01 原型，本任务偏离处已在 PRD 记录"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端层规范索引"}
+{"file": ".trellis/spec/frontend/navigation-session.md", "reason": "文件会话与导航规则：删除连接后需清理 FileTabSession 选择"}
+{"file": ".trellis/spec/frontend/design-tokens.md", "reason": "必须复用 theme token 与 AppChrome 组件"}

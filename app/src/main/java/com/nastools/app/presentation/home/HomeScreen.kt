@@ -28,13 +28,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nastools.app.data.database.entity.NasConfigEntity
 import com.nastools.app.data.database.entity.TaskEntity
+import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasEmptyState
 import com.nastools.app.presentation.components.NasErrorState
 import com.nastools.app.presentation.components.NasIconContainer
 import com.nastools.app.presentation.components.NasMotion
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
-import com.nastools.app.presentation.components.nasAnimateContentSize
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardElevation
@@ -59,6 +59,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val motionEnabled = rememberNasMotionEnabled()
+    var pendingDeleteConfig by remember { mutableStateOf<NasConfigEntity?>(null) }
 
     NasScaffold(
         bottomBar = bottomBar,
@@ -78,20 +79,7 @@ fun HomeScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .nasAnimateContentSize(motionEnabled)
         ) {
-            Text(
-                "一切，都在这里。",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(top = NasSpacing.xs)
-            )
-            Text(
-                "连接你的 NAS，随时接着上一次。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = NasSpacing.xxs, bottom = NasSpacing.lg)
-            )
-
             if (uiState.activeTasks.isNotEmpty()) {
                 ActiveTaskBanner(
                     task = uiState.activeTasks.first(),
@@ -124,11 +112,26 @@ fun HomeScreen(
                             onOpenFiles()
                         },
                         onManageClick = onNavigateToConfig,
-                        onCreateClick = onNavigateToNewConfig
+                        onCreateClick = onNavigateToNewConfig,
+                        onConfigDelete = { pendingDeleteConfig = it },
+                        onOpenPresets = onNavigateToPresets
                     )
                 }
             }
         }
+    }
+
+    pendingDeleteConfig?.let { config ->
+        NasConfirmDialog(
+            title = "删除连接",
+            message = "确定要删除连接「${config.name}」吗？将同时删除此连接相关的上传预设，NAS 上的文件不受影响，此操作不可撤销。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.delete(config.id)
+                pendingDeleteConfig = null
+            },
+            onDismiss = { pendingDeleteConfig = null }
+        )
     }
 }
 
@@ -221,6 +224,8 @@ private fun ConfigList(
     onConfigClick: (String) -> Unit,
     onManageClick: (String) -> Unit,
     onCreateClick: () -> Unit,
+    onConfigDelete: (NasConfigEntity) -> Unit,
+    onOpenPresets: () -> Unit,
     modifier: Modifier = Modifier,
     motionEnabled: Boolean = rememberNasMotionEnabled()
 ) {
@@ -246,8 +251,9 @@ private fun ConfigList(
         ) {
             item {
                 SectionHeader(
-                    title = "连接",
-                    detail = "${configs.size} 个配置"
+                    title = "我的连接",
+                    count = configs.size,
+                    detail = "WebDAV"
                 )
             }
             items(configs, key = { it.id }) { config ->
@@ -255,26 +261,44 @@ private fun ConfigList(
                     config = config,
                     modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
                     onClick = { onConfigClick(config.id) },
-                    onManageClick = { onManageClick(config.id) }
+                    onManageClick = { onManageClick(config.id) },
+                    onDeleteClick = { onConfigDelete(config) }
                 )
+            }
+            item {
+                SectionHeader(title = "常用工作流", detail = null)
+                Spacer(Modifier.height(NasSpacing.sm))
+                PresetShortcut(onClick = onOpenPresets)
             }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String, detail: String) {
+private fun SectionHeader(title: String, detail: String?, count: Int? = null) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = NasSpacing.xs, bottom = NasSpacing.xxs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            if (count != null) {
+                Spacer(Modifier.width(NasSpacing.xs))
+                Text(
+                    "$count",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Spacer(Modifier.weight(1f))
-        Text(
-            detail,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (detail != null) {
+            Text(
+                detail,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -283,7 +307,8 @@ private fun ConfigCard(
     config: NasConfigEntity,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
-    onManageClick: () -> Unit
+    onManageClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Card(
@@ -321,6 +346,13 @@ private fun ConfigCard(
                             onClick = {
                                 showMenu = false
                                 onManageClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("删除连接") },
+                            onClick = {
+                                showMenu = false
+                                onDeleteClick()
                             }
                         )
                     }
@@ -399,7 +431,8 @@ private fun LoadingSkeleton(modifier: Modifier = Modifier) {
     ) {
         item {
             SectionHeader(
-                title = "连接",
+                title = "我的连接",
+                count = null,
                 detail = "加载中..."
             )
         }
@@ -497,7 +530,7 @@ private fun HomePreviewContent() {
                 count = 2,
                 onClick = {}
             )
-            ConfigCard(config = previewConfig(), onClick = {}, onManageClick = {})
+            ConfigCard(config = previewConfig(), onClick = {}, onManageClick = {}, onDeleteClick = {})
         }
     }
 }

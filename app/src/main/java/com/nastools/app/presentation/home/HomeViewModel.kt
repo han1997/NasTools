@@ -8,9 +8,11 @@ import com.nastools.app.data.repository.NasConfigRepository
 import com.nastools.app.data.repository.TaskRepository
 import com.nastools.app.presentation.browser.FileTabSession
 import dagger.hilt.android.lifecycle.HiltViewModel
+import androidx.lifecycle.viewModelScope
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -39,6 +41,16 @@ class HomeViewModel @Inject constructor(
     /** 首页卡片点击 = 明确选择连接，文件标签页据此恢复目录 */
     fun selectConnection(configId: String) {
         fileTabSession.select(configId)
+    }
+
+    /**
+     * 删除连接。上传预设通过 Room 外键 CASCADE 一并删除（见 UploadPresetEntity）
+     * ；文件标签会话的选中清理由 FilesScreen 观察配置列表后 clearSelection() 完成。
+     */
+    fun delete(configId: String) {
+        viewModelScope.launch {
+            configRepository.deleteById(configId)
+        }
     }
 
     private val reloadRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)

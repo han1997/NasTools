@@ -106,7 +106,23 @@ BackHandler(enabled = uiState.isDirty && !showUnsavedDialog) { showUnsavedDialog
 
 ---
 
+## 4. 窗口背景与 Compose 主题背景必须一致
+
+页面切换转场期间两个 destination 会短暂半透明叠加，露出的是 **XML 主题的
+`android:windowBackground`**，不是 Compose 的背景色。二者不一致时，任何转场
+（包括交叉淡化）都会闪出窗口底色——这是「切换页面闪屏」的根因。
+
+- `res/values/colors.xml` 的 `nas_window_background`（浅 `#F7F8F5`）与
+  `values-night`（深 `#202925`）必须与 `NasToolsTheme` 的 `background` 同步修改。
+- `themes.xml`、`values-night/themes.xml`、`values-v27/v29` 及 `values-night-v27`
+  均挂 `windowBackground`；深色主题需同时关闭 `windowLightStatusBar/LightNavigationBar`。
+- 改主题背景色时同步检查这组资源；新增页面不得自备根背景色。
+
+---
+
 ## 变更记录
 
 - Concept 01 迁移（`10-01-ui-polish`）：建立四入口导航、FileTabSession 会话契约、
   未保存保护模式；`NasConfirmDialog` 增加 `dismissText` 参数（默认「取消」向后兼容）。
+- 闪屏修复（`10-11-home-files-ui-fixes`）：确立窗口背景对齐契约（第 4 节）；
+  首页列表模式下文件夹改为单列列表行（用户确认的偏离原型项，原型为两列卡片）。

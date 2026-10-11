@@ -87,7 +87,6 @@ import com.nastools.app.presentation.components.NasConfirmDialog
 import com.nastools.app.presentation.components.NasScaffold
 import com.nastools.app.presentation.components.NasTopAppBar
 import com.nastools.app.presentation.components.nasAnimateContentSize
-import com.nastools.app.presentation.components.nasCardBorder
 import com.nastools.app.presentation.components.nasCardColors
 import com.nastools.app.presentation.components.nasCardElevation
 import com.nastools.app.presentation.components.rememberNasMotionEnabled
@@ -368,9 +367,7 @@ fun BrowserScreen(
                 }
 
                 else -> {
-                    // 列表模式：文件夹卡片在上，文件行在下（Concept 01）
-                    val folders = uiState.entries.filter { it.isDirectory }
-                    val files = uiState.entries.filterNot { it.isDirectory }
+                    // 列表模式：文件夹与文件统一为单列列表行（用户确认，有意偏离原型卡片网格）
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
@@ -381,25 +378,7 @@ fun BrowserScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(NasSpacing.sm)
                     ) {
-                        if (folders.isNotEmpty()) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(NasSpacing.md)) {
-                                    folders.chunked(2).forEach { rowFolders ->
-                                        Row(horizontalArrangement = Arrangement.spacedBy(NasSpacing.md)) {
-                                            rowFolders.forEach { folder ->
-                                                FolderCard(
-                                                    name = folder.name,
-                                                    modifier = Modifier.weight(1f),
-                                                    onClick = { openEntry(folder) }
-                                                )
-                                            }
-                                            if (rowFolders.size == 1) Spacer(Modifier.weight(1f))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        items(files, key = { it.path }) { entry ->
+                        items(uiState.entries, key = { it.path }) { entry ->
                             EntryRow(
                                 entry = entry,
                                 modifier = if (motionEnabled) Modifier.animateItemPlacement() else Modifier,
@@ -458,40 +437,6 @@ private fun CrumbButton(label: String, onClick: () -> Unit, isLast: Boolean = fa
             .clickable(onClick = onClick)
             .padding(horizontal = NasSpacing.xs, vertical = NasSpacing.sm)
     )
-}
-
-/** 文件夹卡片（列表模式两列，Concept 01） */
-@Composable
-private fun FolderCard(
-    name: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        shape = NasShape.Field,
-        colors = nasCardColors(),
-        elevation = nasCardElevation(),
-        border = nasCardBorder()
-    ) {
-        Column(modifier = Modifier.padding(NasSpacing.md)) {
-            Icon(
-                Icons.Default.Folder,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(bottom = NasSpacing.md)
-                    .size(30.dp)
-            )
-            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                "文件夹",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
 }
 
 /** 底部上传入口（Concept 01：上传到当前目录） */

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 窗口背景与 NasToolsTheme.background 一致，避免转场/启动时闪出默认窗口底色（见 10-11-home-files-ui-fixes R1） -->
+    <color name="nas_window_background">#F7F8F5</color>
+</resources>
